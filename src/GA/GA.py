@@ -423,11 +423,11 @@ def RunGASubset(params, data, objective, seedSubs=[], verbose=False, randSeed=No
         # talk, maybe
         if genCnt % printFreq == 0:
             print('Generation %d of %d: Best Score = %0.4f, Early Termination = %d\n\t%s'%\
-                (genCnt + 1, numGens, bestScore, termCount, SubsetStr(bestSubset)))
+                (genCnt + 1, numGens, bestScore, termCount, BinaryStr(bestSubset)))
             
     # Finish GP Algorithm Whoo Hoo!
     print('Generation %d of %d: Best Score = %0.4f, Early Termination = %d\n\t%s'%\
-        (genCnt + 1, numGens, bestScore, termCount, SubsetStr(bestSubset)))
+        (genCnt + 1, numGens, bestScore, termCount, BinaryStr(bestSubset)))
     
     ''' plot GP progress '''
     fig = plysub.make_subplots(rows=2, cols=1, print_grid=False, subplot_titles=['Best Score', 'Average Score'])
@@ -435,10 +435,10 @@ def RunGASubset(params, data, objective, seedSubs=[], verbose=False, randSeed=No
     gens = len(genBest)
     xs = list(range(gens))
     fig.add_trace(go.Scatter(x=xs, y=genScores[:,0], mode='markers+lines', name='Best Score',
-    		text=['%s = %0.5f'%(SubsetStr(subset), score) for (subset, score) in zip(genBest, genScores[:,0])]), 1, 1)
+    		text=['%s = %0.5f'%(BinaryStr(subset), score) for (subset, score) in zip(genBest, genScores[:,0])]), 1, 1)
     fig.add_trace(go.Scatter(x=xs, y=genScores[:,1], mode='markers+lines', name='Average Score'), 2, 1)
     # annotate the best solution
-    bestAnn = dict(x=gens-1, y=np.min(genScores[:,0]), xref='x1', yref='y1', text='%s = %0.5f'%(SubsetStr(bestSubset), bestScore),
+    bestAnn = dict(x=gens-1, y=np.min(genScores[:,0]), xref='x1', yref='y1', text='%s = %0.5f'%(BinaryStr(bestSubset), bestScore),
                    showarrow=True, bordercolor="#c7c7c7", borderwidth=2, borderpad=4, bgcolor="#6d72f1", opacity=0.8,
                    font={'color':'#ffffff'}, align="center", arrowhead=2, arrowsize=1, arrowwidth=2, arrowcolor="#636363")
     # update layout
@@ -461,7 +461,7 @@ def RunGASubset(params, data, objective, seedSubs=[], verbose=False, randSeed=No
 		# now sort so best is at top
 		GA_BEST = GA_BEST[np.argsort(-1*optim_goal*GA_BEST[:, 0]), :]   
     # build the results dataframe
-    indx = [SubsetStr(subset) for subset in GA_BEST[:, 1:]]
+    indx = [BinaryStr(subset) for subset in GA_BEST[:, 1:]]
     GA_BEST = pd.DataFrame(index=indx, data=GA_BEST, columns=['Score']+data.columns.tolist())
     # compute the subset bests frequencies, add them in
     freqs = pd.DataFrame(data=GA_BEST.index.value_counts()/len(genBest), columns=['Frequency'])

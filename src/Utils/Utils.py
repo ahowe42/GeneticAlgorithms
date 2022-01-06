@@ -1,13 +1,17 @@
 ''' This module holds generic utility functions. '''
 import numpy as np
+import time
 import ipdb
 
 
 
 ''' generic function to make a binary string from array '''
-def SubsetStr(subset)
+def BinaryStr(subset)
 		'''
-		blah
+		Make a nice binary string of the form '1010' from an input
+		array_like of binary values.
+		:param subset: array_like of binary values
+		:return strbinary: string of the binary values
 		'''
 		return ''.join([str(int(flg)) for flg in subset])
 
