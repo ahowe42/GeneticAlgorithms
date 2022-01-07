@@ -23,76 +23,144 @@ pd.set_option('display.max_columns', None)
 
 
 def OP_GAEngineering(currBest, prevBest, population, probEngineer):
-	'''
-	blah
-	'''
+		'''
+		This implements GA engineering, the point of which is to limit the
+		variability between GA runs. It takes the best solution from the
+		previous generation and the best solution from the current generation,
+		and finds the difference. Where they are different, the bits from the
+		previous best are inserted into the offspring of the current generation
+		with the specified probability. This should only be called if the previous
+		best is better than the current best.
+		:param currBest: p-length array_like holding the best solution from the
+				current generation
+		:param prevBest: p-length array_like holding the best solution from the
+				previous generation
+		:param population: (n,p) array of n GA solutions of size p each; this is
+				the offspring for the next generation
+		probEngineer: scalar float probability of GA engineering (in range [0,1])
+		offspring: (n,p) population with bits engineered
+		'''
+
+		# duck arrays
+		currBest = np.array(currBest, ndmin=1, dtype=bool, copy=False).flatten()
+		prevBest = np.array(prevBest, ndmin=1, dtype=bool, copy=False).flatten()
+		population = np.array(population, ndmin=2, dtype=bool, copy=False)
+		(n,p) = population.shape
+
+		# first get where they are different and the actual different values
+		difflocs = np.logical_xor(currBest, prevBest)
+		diffvals = prevBest[difflocs]
+		# if no differences, just exit
+		if np.sum(difflocs) == 0:
+			return population
+
+		# generate the randoms to decide who gets engineered
+		engme = engineer_rate > np.random.rand(n)
+		# if none selected to engineer, just exit
+		if np.sum(engme) == 0:
+			return population
+
+		# GA engineer - population[engme, difflocs] = diffvals doesn't work :-(
+		newPop = np.zeros((n, p), dtype=bool)
+		rows = np.arange(n)
+		# first build the output by adding the population elements that won't be changed
+		rows_nochg = rows[~engme]
+		newPop[rows_nochg, :] = population[~engme, :]
+		# now edit the rest of the population
+		jnk = population[engme, :]
+		jnk[:, difflocs] = diffvals
+		newPop[rows[engme], :] = jnk
+
+		return newPop
 	
 	
 def OP_Crossover(population, parents, probXover):
     '''
     Performs crossover on the current generation of a GA after the solutions
     have been selected and paired for mating. Crossover is selected to occur
-    with (probXover)% probability - if no crossover, the results are genetic replicates.
-    For single-and double-point crossover, the points are selected uniformly.
-    :param population: array_like of the current population
+    with (probXover)% probability - if no crossover, the results are genetic
+    replicates. For single-and double-point crossover, the points are selected
+    uniformly randomly.
+    :param population: (n,p) bool array of n GA solutions of size p each
     :param parents: (n/2,2) array indicating pairs of solutions to mate; if n is odd,
         parents is of size ((n-1)/2,2)
     :param probXover: scalar float probability of crossover (in range [0,1])
     :return newPop: (n,p) array of next generation's population
     '''
     
-    # initialize the container for the new population
-    newPop = []
-    
-    # iterate over pairs of trees
-    for pair in parents:
-        # get the parents
-        this = population[pair[0]]
-        that = population[pair[1]]
-        if probXover > np.random.rand():
-            # cross them over
-            offspring = TreesCrossover(this, that)
-            newPop.extend(offspring)
-        else:
-            # just copy them
-            newPop.extend((copy.deepcopy(this), copy.deepcopy(that)))
-    
-    return np.array(newPop)
+		# population and parent arrays: duck you! JAH 20120920
+		population = np.array(population, ndmin=2, dtype=bool, copy=False)
+		parents = np.array(parents, ndmin=2, copy=False)
+
+		# now get the dimensions JAH 20120920
+		(n,p) = parents.shape
+		matepairs = parents.shape[0] # number couples, should be n/2
+
+		offspring1 = np.zeros((matepairs, p))
+		offspring2 = offspring1.copy()
+		# perform the crossovers (maybe)
+		if xover_type == 1:     # single-point
+			for matecnt in range(matepairs):
+				dad = population[parents[matecnt,0],:]
+				mom = population[parents[matecnt,1],:]
+				if xover_rate > np.random.rand():     # crossover
+					# point randomly selected - endpoints allowed (since :p excludes p)
+					xoverpoint = np.random.random_integers(1,p-1)
+					offspring1[matecnt,:] = np.concatenate((dad[:xoverpoint], mom[xoverpoint:]))
+					offspring2[matecnt,:] = np.concatenate((mom[:xoverpoint], dad[xoverpoint:]))
+				else:							# genetic replication
+					offspring1[matecnt,:] = dad.copy()
+					offspring2[matecnt,:] = mom.copy()
+		elif xover_type == 2:   # double-point
+			for matecnt in range(matepairs):
+				dad = population[parents[matecnt,0],:]
+				mom = population[parents[matecnt,1],:]
+				if xover_rate > np.random.rand():     # crossover
+					# select 2 points randomly without replacement in inclusive range [1,p-2]
+					xoverpoints = np.sort(np.random.permutation(p-1)[:2]+1)
+					offspring1[matecnt,:] = np.concatenate((dad[:xoverpoints[0]],
+						mom[xoverpoints[0]:xoverpoints[1]],dad[xoverpoints[1]:]))
+					offspring2[matecnt,:] = np.concatenate((mom[:xoverpoints[0]],
+						dad[xoverpoints[0]:xoverpoints[1]],mom[xoverpoints[1]:]))
+				else:                           # genetic replication
+					offspring1[matecnt,:] = dad.copy()
+					offspring2[matecnt,:] = mom.copy()
+		elif xover_type == 3:   # uniform
+			for matecnt in range(matepairs):
+				dad = population[parents[matecnt,0],:]
+				mom = population[parents[matecnt,1],:]
+				if xover_rate > np.random.rand():     # crossover
+					xoverpoints = xover_rate > np.random.rand(p)
+					offspring1[matecnt,:] = dad*xoverpoints + mom*~xoverpoints
+					offspring2[matecnt,:] = dad*~xoverpoints + mom*xoverpoints
+				else:                           # genetic replictaion
+					offspring1[matecnt,:] = dad.copy()
+					offspring2[matecnt,:] = mom.copy()
+
+		return np.vstack((offspring1,offspring2)) == 1
 
 
-def OP_Mutate(population, prob, maxDepth, nodeMeta, mutePrune):
+def OP_Mutate(population, prob):
     '''
-    Perform random mutation or pruning on a population of trees, this would
-    usually be performed after the previous generation has mated and produced
-    the next generation.
-    :param population: array_like of the mated population
+    Perform random mutation or pruning on a population; this would usually
+    be performed after the previous generation has mated and produced the
+    next generation.
+    :param population: (n,p) array of n GA solutions of size p each
     :param prob: scalar float probability of mutation or pruning (in range [0,1])
-    :param maxDepth: integer maximum depth allowed for the tree (including the root)
-    :param nodeMeta: dictionary holding the a tuple of a list of the node values
-        allowed, the number of node values allowed, and node weight for random
-        selection; keys are node types of 'ops, 'feat', and 'const'
-    :param mutePrune: 'm' for mutation, 'p' for pruning
-    :return newPop: array of mutated population
+    :return newPop: (n,p) array of mutated population
     '''
     
-    # initialize the container for the new population
-    n = len(population)
-    newPop = np.array([None]*n)
-    
-    # get the index of the trees that will mutate
-    mutators = (prob > np.random.rand(n))
-    
-    # save the non-mutators
-    newPop[~mutators] = population[~mutators]
-    
-    # iterate over the trees to mutate and save
-    for muteMe in np.nonzero(mutators)[0]:
-        if mutePrune == 'm':
-            newPop[muteMe] = TreeMutate(population[muteMe], maxDepth, nodeMeta)
-        elif mutePrune == 'p':
-            newPop[muteMe] = TreePrune(population[muteMe], nodeMeta)
-    
-    return newPop
+		# ducktype population
+		population = np.array(population, ndmin=2, dtype=bool, copy=False)
+		(n,p) = population.shape
+
+		# get the index of the elements that will mutate
+		mutators = (mutat_rate > np.random.rand(n,p))
+		# now prepare the mutated population
+		newPop = population.copy()
+		newPop[mutators] = ~(newPop[mutators])
+
+		return newPop
 
 
 def OP_MateSelect(popFitness, optimGoal, meth):
@@ -131,7 +199,7 @@ def OP_MateSelect(popFitness, optimGoal, meth):
         # prepare bins for roulette - bigger bins at the beginning with lower scores
         bins = np.cumsum(np.linspace(populSize, 1, populSize)/(populSize*(populSize + 1.0)/2))
         # first n random numbers to each bin to find each bin that is a lower bound for each rand
-        rands_in_bins = np.repeat(rnd.rand(populSize), populSize) >= np.tile(bins, populSize)
+        rands_in_bins = np.repeat(np.random.rand(populSize), populSize) >= np.tile(bins, populSize)
         # summing all lower bound flags for each random gives the bin it falls into (since 0-based)
         newPop = np.sum(np.reshape(rands_in_bins, [populSize]*2), axis=1)
         # now index into the stdindex to get parents
@@ -141,7 +209,7 @@ def OP_MateSelect(popFitness, optimGoal, meth):
             parents = np.insert(parents, 0, stdIndex[0])
             populSize += 1
         # randomly resort then pair up
-        parents = np.reshape(parents[rnd.permutation(populSize)], (populSize/2, 2))
+        parents = np.reshape(parents[np.random.permutation(populSize)], (populSize/2, 2))
 
         # 20160225 JAH don't want an uneven population size (often from Elitism) to result in
         # such fast population growth, so randomly cull one mating pair, with frequency relative
@@ -152,7 +220,7 @@ def OP_MateSelect(popFitness, optimGoal, meth):
             # create the (0,1] bin upper bounds
             cumProbs = np.cumsum(srtAvgScs/np.sum(srtAvgScs))
             # pick which mating pair is culled - it's the last bin upper bound that's <= the random
-            cullMe = (srtAvgScs[rnd.rand() <= cumProbs])[0] - 1
+            cullMe = (srtAvgScs[np.random.rand() <= cumProbs])[0] - 1
             parents = np.hstack((parents[:cullMe], parents[(cullMe+1):]))
             
     return parents
