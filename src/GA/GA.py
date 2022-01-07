@@ -30,7 +30,7 @@ def OP_GAEngineering(currBest, prevBest, population, probEngineer):
 	
 def OP_Crossover(population, parents, probXover):
     '''
-    Performs tree crossover on the current generation of a GP after the solutions
+    Performs crossover on the current generation of a GA after the solutions
     have been selected and paired for mating. Crossover is selected to occur
     with (probXover)% probability - if no crossover, the results are genetic replicates.
     For single-and double-point crossover, the points are selected uniformly.
