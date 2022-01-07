@@ -5,7 +5,7 @@ import time
 
 
 ''' generic function to make a binary string from array '''
-def BinaryStr(subset)
+def BinaryStr(subset):
 		'''
 		Make a nice binary string of the form '1010' from an input
 		array_like of binary values.
