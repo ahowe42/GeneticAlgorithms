@@ -5,7 +5,7 @@ import datetime as dt
 import ipdb
 import time
 from itertools import chain
-import copy
+import re
 import sys
 
 import chart_studio.plotly as ply
@@ -17,6 +17,7 @@ import plotly.subplots as plysub
 
 sys.path.append('../')
 from Utils.Utils import *
+from GA.Objective import *
 
 pd.set_option('display.max_columns', None)
 
@@ -74,7 +75,7 @@ def OP_GAEngineering(currBest, prevBest, population, probEngineer):
     return newPop
   
   
-def OP_Crossover(population, parents, probXover):
+def OP_Crossover(population, parents, xoverType, probXover):
     '''
     Performs crossover on the current generation of a GA after the solutions
     have been selected and paired for mating. Crossover is selected to occur
@@ -84,6 +85,7 @@ def OP_Crossover(population, parents, probXover):
     :param population: (n,p) bool array of n GA solutions of size p each
     :param parents: (n/2,2) array indicating pairs of solutions to mate; if n is odd,
         parents is of size ((n-1)/2,2)
+    :param xoverType: 1 = single point, 2 = dual point, 3 = uniform
     :param probXover: scalar float probability of crossover (in range [0,1])
     :return newPop: (n,p) array of next generation's population
     '''
@@ -93,17 +95,17 @@ def OP_Crossover(population, parents, probXover):
     parents = np.array(parents, ndmin=2, copy=False)
 
     # now get the dimensions JAH 20120920
-    (n,p) = parents.shape
+    (n, p) = population.shape
     matepairs = parents.shape[0] # number couples, should be n/2
 
     offspring1 = np.zeros((matepairs, p))
     offspring2 = offspring1.copy()
     # perform the crossovers (maybe)
-    if xover_type == 1:     # single-point
+    if xoverType == 1:     # single-point
       for matecnt in range(matepairs):
-        dad = population[parents[matecnt,0],:]
-        mom = population[parents[matecnt,1],:]
-        if xover_rate > np.random.rand():     # crossover
+        dad = population[parents[matecnt, 0],:]
+        mom = population[parents[matecnt, 1],:]
+        if probXover > np.random.rand():     # crossover
           # point randomly selected - endpoints allowed (since :p excludes p)
           xoverpoint = np.random.random_integers(1,p-1)
           offspring1[matecnt,:] = np.concatenate((dad[:xoverpoint], mom[xoverpoint:]))
@@ -111,11 +113,11 @@ def OP_Crossover(population, parents, probXover):
         else:              # genetic replication
           offspring1[matecnt,:] = dad.copy()
           offspring2[matecnt,:] = mom.copy()
-    elif xover_type == 2:   # double-point
+    elif xoverType == 2:   # double-point
       for matecnt in range(matepairs):
         dad = population[parents[matecnt,0],:]
         mom = population[parents[matecnt,1],:]
-        if xover_rate > np.random.rand():     # crossover
+        if probXover > np.random.rand():     # crossover
           # select 2 points randomly without replacement in inclusive range [1,p-2]
           xoverpoints = np.sort(np.random.permutation(p-1)[:2]+1)
           offspring1[matecnt,:] = np.concatenate((dad[:xoverpoints[0]],
@@ -125,11 +127,11 @@ def OP_Crossover(population, parents, probXover):
         else:                           # genetic replication
           offspring1[matecnt,:] = dad.copy()
           offspring2[matecnt,:] = mom.copy()
-    elif xover_type == 3:   # uniform
+    elif xoverType == 3:   # uniform
       for matecnt in range(matepairs):
         dad = population[parents[matecnt,0],:]
         mom = population[parents[matecnt,1],:]
-        if xover_rate > np.random.rand():     # crossover
+        if probXover > np.random.rand():     # crossover
           xoverpoints = xover_rate > np.random.rand(p)
           offspring1[matecnt,:] = dad*xoverpoints + mom*~xoverpoints
           offspring2[matecnt,:] = dad*~xoverpoints + mom*xoverpoints
@@ -155,7 +157,7 @@ def OP_Mutate(population, prob):
     (n,p) = population.shape
 
     # get the index of the elements that will mutate
-    mutators = (mutat_rate > np.random.rand(n,p))
+    mutators = (prob > np.random.rand(n,p))
     # now prepare the mutated population
     newPop = population.copy()
     newPop[mutators] = ~(newPop[mutators])
@@ -244,6 +246,7 @@ def RunGASubset(params, data, objective, seedSubs=[], verbose=False, randSeed=No
         'convgcrit': float convergence criteria
         'elitism': True = on, False = off
         'matetype': 1 = sorted, 2 = roulette
+        'xoverType': 1 = single, 2 = dual, 3 = uniform
         'probXover': float probability of crossover
         'probMutate': float probability of mutation
         'probEngineer': float probability of GA engineering
@@ -252,7 +255,7 @@ def RunGASubset(params, data, objective, seedSubs=[], verbose=False, randSeed=No
         'printFreq': integer number of generations by which the GA will print
             progress
     :param data: dictionary expected to hold two items:
-        'data': pandas dataframe of data
+        'data': pandas dataframe of data; 1st column should be the target
         'name': name (descriptive or perhaps filename) of data
     :param objective: dictionary of objective function parameters:
         'function': string function to execute whatever modeling is required and
@@ -295,13 +298,16 @@ def RunGASubset(params, data, objective, seedSubs=[], verbose=False, randSeed=No
     printFreq = int(params['printFreq'])
     showTopSubs = int(params['showTopSubs'])
     initPerc = float(params['initPerc'])
-    forceVars = float(params['forceVars'])
+    forceVars = params['forceVars']
     probEngineer = float(params['probEngineer'])
+    xoverType = int(params['xoverType'])
     
     # parse the data
     dataName = data['name']
     data = data['data']
     n, p = data.shape
+    p -= 1 # subtract 1 for the target
+    feats = data.columns[1:].tolist()
     # these are used later on
     varis = np.arange(p) + 1
     bin_to_dec = 2**(varis - 1)
@@ -333,6 +339,7 @@ def RunGASubset(params, data, objective, seedSubs=[], verbose=False, randSeed=No
     print('Features Forced in all Models: %r'%forceVars)
     print('Initial Population Seeded with %d Subsets'%len(seedSubs))
     print('Mutation Rate: %0.2f\nCrossover Rate: %0.2f'%(probMutate, probXover))
+    print('Crossover Method: %s'%['SINGLE','DUAL','UNIFORM'][xoverType - 1])
     print('Mating Method: %s'%['SORTED','ROULETTE'][mateType - 1])
     print('Elitism is: %s'%['OFF','ON'][elitism])
     if (elitism) and (probEngineer > 0.0):
@@ -350,15 +357,15 @@ def RunGASubset(params, data, objective, seedSubs=[], verbose=False, randSeed=No
     
     ''' setup first population '''
     # initialize the population with initPerc% 1s, then ...
-    population = (initPerc >= np.random.rand(popul_size, p))
+    population = (initPerc >= np.random.rand(populSize, p))
     # ... force everything in force_vars to be included
     if forceVars is not None:
       population[:, forceVars] = True    
     # ... then add any seed solutions to the end ...
-    if seedSubs is not None:
+    if seedSubs != []:
       seedSubs = np.array(seedSubs, ndmin=2, copy=False)
-      scnt = min(seedSubs.shape[0], popul_size)
-      population[-scnt:,v:] = seedSubs
+      scnt = min(seedSubs.shape[0], populSize)
+      population[-scnt:, :] = seedSubs
     # ... but find any solutions that are entirely 0 and replace them
     allZero = np.where(np.sum(population, axis=1)==0)[0]
     population[allZero, np.random.randint(0, p, len(allZero))] = True
@@ -387,16 +394,16 @@ def RunGASubset(params, data, objective, seedSubs=[], verbose=False, randSeed=No
         for popCnt in range(populSize):
             if genCnt > 0:
                 # check if this subset already evaluated, to save time
-                prevEval = np.nonzero(population[popCnt].function == allSubsets)[0]
+                prevEval = np.where(np.sum(allSubsets == population[popCnt, :], axis=1)==p)[0]
                 if prevEval.size == 0:
                     # evalaute
-                    objArgs['subset'] = population[popCnt].function
+                    objArgs['subset'] = population[popCnt, :]
                     popFitness[popCnt] = globals()[objFunc](**objArgs)[0]
                 else:
                     # look up existing score
                     popFitness[popCnt] = allScores[prevEval]
             else:
-                objArgs['subset'] = population[popCnt].function
+                objArgs['subset'] = population[popCnt]
                 popFitness[popCnt] = globals()[objFunc](**objArgs)[0]
                 
         # If optimGoal is (+), this will not change the scores, so the true max will be taken.
@@ -407,7 +414,7 @@ def RunGASubset(params, data, objective, seedSubs=[], verbose=False, randSeed=No
         
         # save some stuff before moving along
         genScores[genCnt,:] = (optVal, np.mean(popFitness[np.isfinite(popFitness)]))
-        genBest[genCnt] = population[optInd]
+        genBest[genCnt] = population[optInd, :]
         
         ''' save all unique subsets & their scores '''
         # must first convert population to decimal representation so can unique
@@ -421,12 +428,13 @@ def RunGASubset(params, data, objective, seedSubs=[], verbose=False, randSeed=No
         else:
             # not first generation, so append to the existing arrays
             allScores = np.append(allScores, popFitness[ind])
-            allSubsets = np.vstack((allchroms, population[ind,:]))
-        # now just get the unique subsets
-        uniq, ind = np.unique(allSubsets, return_index=True)
+            allSubsets = np.vstack((allSubsets, population[ind,:]))
+        # ensure all* unique
+        tmp = np.sum(allSubsets*bin_to_dec, axis=1)
+        _, ind = np.unique(tmp, return_index=True)
         allScores = allScores[ind]
-        allSubsets = uniq
-        
+        allSubsets = allSubsets[ind, :]
+            	
         ''' check for early termination '''
         if optimGoal*genScores[genCnt, 0] > optimGoal*bestScore:
             # this is a better score, so save it and reset the counter
@@ -457,36 +465,39 @@ def RunGASubset(params, data, objective, seedSubs=[], verbose=False, randSeed=No
         # select parents for the next generation
         parents = OP_MateSelect(popFitness, optimGoal, mateType)
         # crossover
-        newPop = OP_Crossover(population, parents, probXover)
+        newPop = OP_Crossover(population, parents, xoverType, probXover)
         # mutation
         newPop = OP_Mutate(newPop, probMutate)
         # engineering
         if probEngineer > 0:
           # I check for probEngineer > 0 because I can turn this off by
-          # setting it to 0. Below we use genscores and gencnt, because
+          # setting it to 0. Below we use genscores and genCnt, because
           # bestScore and bestSubset won't hold the current best if the
           # current best solution is worse than the overall best, and elitism
           # is off.
-          if (gencnt > 0) and (optim_goal*prevGenBestScore > optim_goal*bestScore):
+          if (genCnt > 0) and (optimGoal*prevGenBestScore > optimGoal*bestScore):
             # only call GAengineering if the previous generation best is better
-            newPop = OP_GAEngineering(genBest[gencnt,:], prevGenBestSubset, newPop, probEngineer)
+            newPop = OP_GAEngineering(genBest[genCnt,:], prevGenBestSubset, newPop, probEngineer)
             prevGenBestSubset = bestSubset
             prevGenBestScore = bestScore
         # fix all-zero chromosomes
-        allZero = np.where(np.sum(newPop, axis=1)==0)[0]
-        newPop[allZero, np.random.randint(0, p, len(allZero))] = True
+        allZero = np.sum(newPop*bin_to_dec, axis=1)==0
+        newPop[allZero, np.random.randint(0, p, sum(allZero))] = True
 
         ''' finalize new population & convey best individual into it if not already there '''
         if elitism:
           # check if best is currently in new_pop
-          if np.where(np.sum(newPop == bestSubset, axis=1)==p)[0].size == 0:
+          tmp1 = np.sum(newPop*bin_to_dec, axis=1)
+          tmp2 = np.sum(bestSubset*bin_to_dec)
+          if tmp2 not in tmp1:
+          	#if np.where(np.sum(newPop == bestSubset, axis=1)==p)[0].size == 0:
             population = np.vstack((newPop, bestSubset))
           else:
             population = newPop.copy()
         else:
           population = newPop.copy()
         # readjust in case population grew
-        populSize = len(newPop)
+        populSize = len(population)
     
         # talk, maybe
         if genCnt % printFreq == 0:
@@ -514,28 +525,24 @@ def RunGASubset(params, data, objective, seedSubs=[], verbose=False, randSeed=No
     anns.append(bestAnn)    
     fig.update_layout(title='GA Progress Resuls by Generation (%s, %s, %s)'%(dataName, objStr, tstamp),
         annotations=anns)
-    fig['layout']['xaxis3'].update(title='Generation')
+    fig['layout']['xaxis2'].update(title='Generation')
     if plotFlag:
         plyoff.plot(fig, filename='../output/GAProgress_%s_%s_%s.html'%(tstamp, re.sub('[^0-9A-Za-z_]', '_', dataName), objFunc),
             auto_open=True, include_mathjax='cdn')
     
     ''' summarize results: GA_BEST '''
-    # must first convert generation best solutions to decimal representation so can unique
-    genBestDec = np.sum(genBest*bin_to_dec, axis=1)
-    # now can get the indices of the unique values; yes, I know this sorts them first - and I don't really care
-    _, ind = np.unique(genBestDec, return_index=True)
     # combine the unique best scores and solutions from each generation
-    GA_BEST = np.hstack((genScores[ind, 0], genBest[ind, :]))
-    # now sort so best is at top
-    GA_BEST = GA_BEST[np.argsort(-1*optim_goal*GA_BEST[:, 0]), :]   
+    GA_BEST = np.hstack((np.atleast_2d(genScores[:, 0]).T, genBest))
     # build the results dataframe
     indx = [BinaryStr(subset) for subset in GA_BEST[:, 1:]]
-    GA_BEST = pd.DataFrame(index=indx, data=GA_BEST, columns=['Score']+data.columns.tolist())
+    GA_BEST = pd.DataFrame(index=indx, data=GA_BEST, columns=['Score']+feats)
     # compute the subset bests frequencies, add them in
     freqs = pd.DataFrame(data=GA_BEST.index.value_counts()/len(genBest), columns=['Frequency'])
     GA_BEST = GA_BEST.join(freqs)
     # drop duplicates
     GA_BEST = GA_BEST.drop_duplicates()
+    # now sort so best is at top
+    GA_BEST = GA_BEST.iloc[np.argsort(-optimGoal*GA_BEST['Score'].values),:]
     
     # show results
     print('%s\nGA Complete\n\tUnique Subsets Evaluated - %d\nTop %d Solutions'%(dispLine, len(allScores), showTopSubs))
