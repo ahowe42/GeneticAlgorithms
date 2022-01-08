@@ -501,12 +501,12 @@ def RunGASubset(params, data, objective, seedSubs=[], verbose=False, randSeed=No
     
         # talk, maybe
         if genCnt % printFreq == 0:
-            print('Generation %d of %d: Best Score = %0.4f, Early Termination = %d\n\t%s'%\
-                (genCnt + 1, numGens, bestScore, termCount, BinaryStr(bestSubset)))
+            print('Generation %d of %d: Best Score = %0.4f, Early Termination = %d\n\t%s (%d)'%\
+                (genCnt + 1, numGens, bestScore, termCount, BinaryStr(bestSubset), np.sum(bestSubset)))
             
     # Finish GP Algorithm Whoo Hoo!
-    print('Generation %d of %d: Best Score = %0.4f, Early Termination = %d\n\t%s'%\
-        (genCnt + 1, numGens, bestScore, termCount, BinaryStr(bestSubset)))
+    print('Generation %d of %d: Best Score = %0.4f, Early Termination = %d\n\t%s (%d)'%\
+        (genCnt + 1, numGens, bestScore, termCount, BinaryStr(bestSubset), np.sum(bestSubset)))
     
     ''' plot GP progress '''
     fig = plysub.make_subplots(rows=2, cols=1, print_grid=False, subplot_titles=['Best Score', 'Average Score'])
@@ -543,9 +543,12 @@ def RunGASubset(params, data, objective, seedSubs=[], verbose=False, randSeed=No
     GA_BEST = GA_BEST.drop_duplicates()
     # now sort so best is at top
     GA_BEST = GA_BEST.iloc[np.argsort(-optimGoal*GA_BEST['Score'].values),:]
+    # add subset size
+    GA_BEST['Size'] = GA_BEST[feats].sum(axis=1)
     
     # show results
-    print('%s\nGA Complete\n\tUnique Subsets Evaluated - %d\nTop %d Solutions'%(dispLine, len(allScores), showTopSubs))
+    print('%s\nGA Complete\n\tUnique Subsets Evaluated - %d\n\tTotal Nontrivial Solutions Possible - %d\nTop %d Solutions'\
+        %(dispLine, len(allScores), 2**p-1, showTopSubs))
     display(GA_BEST.head(showTopSubs))
     
     # stop time
