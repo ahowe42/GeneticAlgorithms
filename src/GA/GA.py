@@ -311,7 +311,7 @@ def RunGASubset(params, data, objective, seedSubs=[], verbose=False, randSeed=No
     # these are used later on
     varis = np.arange(p) + 1
     bin_to_dec = 2**(varis - 1)
-    
+        
     # parse the objective
     objFunc = objective['function']
     objArgs = objective['arguments'] 
@@ -354,6 +354,11 @@ def RunGASubset(params, data, objective, seedSubs=[], verbose=False, randSeed=No
         print('Objective: MINIMIZE')
     print('Objective Function: %s'%objStr)
     print(dispLine)
+    
+    # compute objective with full subset
+    objArgs['subset'] = np.ones(shape=(p,1))
+    fullScore = globals()[objFunc](**objArgs)[0]
+    print('Full Subset Score = %0.4f'%fullScore)
     
     ''' setup first population '''
     # initialize the population with initPerc% 1s, then ...
@@ -501,12 +506,13 @@ def RunGASubset(params, data, objective, seedSubs=[], verbose=False, randSeed=No
     
         # talk, maybe
         if genCnt % printFreq == 0:
-            print('Generation %d of %d: Best Score = %0.4f, Early Termination = %d\n\t%s (%d)'%\
-                (genCnt + 1, numGens, bestScore, termCount, BinaryStr(bestSubset), np.sum(bestSubset)))
+            print('Generation %d of %d: Best Score = %0.4f (%0.4f), Early Termination = %d\n\t%s (%d)'%\
+                (genCnt + 1, numGens, bestScore, bestScore/fullScore, termCount,
+                BinaryStr(bestSubset), np.sum(bestSubset)))
             
     # Finish GP Algorithm Whoo Hoo!
-    print('Generation %d of %d: Best Score = %0.4f, Early Termination = %d\n\t%s (%d)'%\
-        (genCnt + 1, numGens, bestScore, termCount, BinaryStr(bestSubset), np.sum(bestSubset)))
+    print('Generation %d of %d: Best Score = %0.4f (%0.4f), Early Termination = %d\n\t%s (%d)'%\
+        (genCnt + 1, numGens, bestScore, bestScore/fullScore, termCount, BinaryStr(bestSubset), np.sum(bestSubset)))
     
     ''' plot GP progress '''
     fig = plysub.make_subplots(rows=2, cols=1, print_grid=False, subplot_titles=['Best Score', 'Average Score'])
@@ -517,9 +523,10 @@ def RunGASubset(params, data, objective, seedSubs=[], verbose=False, randSeed=No
         text=['%s = %0.5f'%(BinaryStr(subset), score) for (subset, score) in zip(genBest, genScores[:,0])]), 1, 1)
     fig.add_trace(go.Scatter(x=xs, y=genScores[:,1], mode='markers+lines', name='Average Score'), 2, 1)
     # annotate the best solution
-    bestAnn = dict(x=gens-1, y=np.min(genScores[:,0]), xref='x1', yref='y1', text='%s = %0.5f'%(BinaryStr(bestSubset), bestScore),
-                   showarrow=True, bordercolor="#c7c7c7", borderwidth=2, borderpad=4, bgcolor="#6d72f1", opacity=0.8,
-                   font={'color':'#ffffff'}, align="center", arrowhead=2, arrowsize=1, arrowwidth=2, arrowcolor="#636363")
+    bestAnn = dict(x=gens-1, y=np.min(genScores[:,0]), xref='x1', yref='y1', text='%s = %0.4f (%0.4f)'%\
+        (BinaryStr(bestSubset), bestScore, bestScore/fullScore),
+        showarrow=True, bordercolor="#c7c7c7", borderwidth=2, borderpad=4, bgcolor="#6d72f1", opacity=0.8,
+        font={'color':'#ffffff'}, align="center", arrowhead=2, arrowsize=1, arrowwidth=2, arrowcolor="#636363")
     # update layout
     anns = list(fig['layout']['annotations'])
     anns.append(bestAnn)    
@@ -543,12 +550,14 @@ def RunGASubset(params, data, objective, seedSubs=[], verbose=False, randSeed=No
     GA_BEST = GA_BEST.drop_duplicates()
     # now sort so best is at top
     GA_BEST = GA_BEST.iloc[np.argsort(-optimGoal*GA_BEST['Score'].values),:]
-    # add subset size
+    # add relative improvement & subset size
+    GA_BEST['Full Relative'] = GA_BEST['Score']/fullScore
     GA_BEST['Size'] = GA_BEST[feats].sum(axis=1)
     
     # show results
-    print('%s\nGA Complete\n\tUnique Subsets Evaluated - %d\n\tTotal Nontrivial Solutions Possible - %d\nTop %d Solutions'\
-        %(dispLine, len(allScores), 2**p-1, showTopSubs))
+    print('%s\nGA Complete\n\tUnique Subsets Evaluated - %d\n\tTotal Nontrivial Solutions Possible - %d'\
+        %(dispLine, len(allScores), 2**p-1))
+    print('Full Subset Score = %0.4f\nTop %d Solutions'%(fullScore, showTopSubs))
     display(GA_BEST.head(showTopSubs))
     
     # stop time
