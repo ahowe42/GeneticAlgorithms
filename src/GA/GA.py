@@ -605,7 +605,7 @@ def RunGARealOptim(params, data, objective, verbose=False, randSeed=None):
             first must be the score; if a single item is returned, it should be
             in a tuple
         'arguments': dictionary of arguments to pass to the objective function;
-            should include at least 'data' and 'binary'
+            should include at least 'data' and 'values'
     :param verbose: optional (default = false) flag to print extra info
     :param randSeed: optional (default = none) seed for randomizer; if not passed,
         this will be generated and printed
@@ -618,6 +618,9 @@ def RunGARealOptim(params, data, objective, verbose=False, randSeed=None):
     :return tstamp: string timestamp of the GA run
     :return fig: plotly figure of the GA progress
     '''
+    
+    # lambda function for printing list of floats
+    lstPrt = lambda x: '['+','.join(['%0.4f'%val for val in x])+']'
 
     # start time and timestamp
     stt = dt.datetime.now()
@@ -644,11 +647,12 @@ def RunGARealOptim(params, data, objective, verbose=False, randSeed=None):
     lowerB = params['lowerB']
     upperB = params['upperB']
     
-    # dataframe of the bits data
+    # dataframe of the bits data - just for viewing
     n = len(bits) # number of optimizations
     p = sum(bits) # total number of bits
+    feats = ['Real%02d'%v for v in list(range(n))]
     bitsDF = pd.DataFrame(np.c_[bits, lowerB, UpperB], index=['Bits', 'Lower', 'Upper'],
-        columns=list(range(n)))
+        columns=feats)
     
     # parse the data
     dataName = data['name']
@@ -659,7 +663,7 @@ def RunGARealOptim(params, data, objective, verbose=False, randSeed=None):
     objArgs = objective['arguments'] 
     objArgs['data'] = data
     objStr = '%s(%s)'%(objFunc, ', '.join(['%s=%r'%(key, val) for (key, val) in objArgs.items()\
-        if key not in ['data', 'binary']]))
+        if key not in ['data', 'values']]))
     
     # set the random state
     if randSeed is None:
@@ -709,10 +713,12 @@ def RunGARealOptim(params, data, objective, verbose=False, randSeed=None):
     # now initialize more things
     # save results by generation
     genScores = np.zeros((numGens, 2), dtype=float)
-    genBest = np.zeros((numGens ,p), dtype=bool)
+    genBest = np.zeros((numGens, p), dtype=bool)
+    genBestReal = np.zeros((numGens, n), dtype=float)
     # current generation's best
     bestResult = np.zeros((1, p), dtype=bool)
     bestScore = optimGoal*-1*np.Inf
+    bestReal = np.zeros((1, n), dtype=float)
     # previous generation's best - used for GA Engineering
     prevGenBestResult = bestResult.copy()
     prevGenBestScore = bestScore
@@ -723,19 +729,22 @@ def RunGARealOptim(params, data, objective, verbose=False, randSeed=None):
     for genCnt in range(numGens):        
         ''' compute or lookup objective function values '''
         popFitness = np.ones(populSize, dtype=float)*np.Inf
+        popReals = np.zeros(shape=(populSize, n), dtype=float)
         for popCnt in range(populSize):
+            # get the real values
+            popReals[popCnt, :] = EncodeBinaryReal('b', population[popCnt, :], bits, lowerB, upperB)
             if genCnt > 0:
                 # check if this result already evaluated, to save time
-                prevEval = np.where(np.sum(allResults == population[popCnt, :], axis=1)==p)[0]
+                prevEval = np.where(np.sum(allReals == popReals[popCnt, :], axis=1)==n)[0]
                 if prevEval.size == 0:
                     # evalaute
-                    objArgs['binary'] = population[popCnt, :]
+                    objArgs['values'] = popReals[popCnt,:]
                     popFitness[popCnt] = globals()[objFunc](**objArgs)[0]
                 else:
                     # look up existing score
-                    popFitness[popCnt] = allScores[prevEval]
+                    popFitness[popCnt] = allScores[prevEval]                 
             else:
-                objArgs['binary'] = population[popCnt]
+                objArgs['values'] = popReals[popCnt]
                 popFitness[popCnt] = globals()[objFunc](**objArgs)[0]
                 
         # If optimGoal is (+), this will not change the scores, so the true max will be taken.
@@ -745,33 +754,35 @@ def RunGARealOptim(params, data, objective, verbose=False, randSeed=None):
         optVal = popFitness[optInd]
         
         # save some stuff before moving along
-        genScores[genCnt,:] = (optVal, np.mean(popFitness[np.isfinite(popFitness)]))
+        genScores[genCnt, :] = (optVal, np.mean(popFitness[np.isfinite(popFitness)]))
         genBest[genCnt] = population[optInd, :]
+        genBestReal[genCnt] = popReals[optInd, :]
         
         ''' save all unique results & their scores '''
-        # must first convert population to decimal representation so can unique
-        tmp = np.sum(population*bin_to_dec, axis=1)
         # now can get the indices of the unique values; yes, I know this sorts them first - and I don't really care
-        _, ind = np.unique(tmp, return_index=True)
+        _, ind = np.unique(popReals, return_index=True)
         if genCnt == 0:
             # first generation, so create these arrays here
             allScores = popFitness[ind]
             allResults = population[ind, :]
+            allReals = popReals[ind, :]
         else:
             # not first generation, so append to the existing arrays
             allScores = np.append(allScores, popFitness[ind])
-            allResults = np.vstack((allResults, population[ind,:]))
+            allResults = np.vstack((allResults, population[ind, :]))
+            allReals = np.vstack((allReals, popReals[ind, :]))
         # ensure all* unique
-        tmp = np.sum(allResults*bin_to_dec, axis=1)
-        _, ind = np.unique(tmp, return_index=True)
+        _, ind = np.unique(allReals, return_index=True)
         allScores = allScores[ind]
         allResults = allResults[ind, :]
+        allReals = allReals[ind, :]
             	
         ''' check for early termination '''
         if optimGoal*genScores[genCnt, 0] > optimGoal*bestScore:
             # this is a better score, so save it and reset the counter
             bestScore = genScores[genCnt, 0]
             bestResult = genBest[genCnt]
+            bestReal = genBestReal[genCnt]
             termCount = 1
         #elif (optimGoal*genScores[genCnt, 0] < optimGoal*bestScore) and (elitism == False):
         #    # if elitism is off, we can still do early termination with this
@@ -787,6 +798,7 @@ def RunGARealOptim(params, data, objective, verbose=False, randSeed=None):
             print('Early Termination On Generation %d of %d'%(genCnt + 1, numGens))
             genScores = genScores[:(genCnt + 1), :] # keep only up to genCnt spaces (inclusive)
             genBest = genBest[:(genCnt + 1)]
+            genBestReal = genBestReal[:(genCnt + 1)]
             break
             
         # don't bother with the next generation
@@ -812,9 +824,6 @@ def RunGARealOptim(params, data, objective, verbose=False, randSeed=None):
             newPop = OP_GAEngineering(genBest[genCnt,:], prevGenBestResult, newPop, probEngineer)
             prevGenBestResult = bestResult
             prevGenBestScore = bestScore
-        # fix all-zero chromosomes
-        allZero = np.sum(newPop*bin_to_dec, axis=1)==0
-        newPop[allZero, np.random.randint(0, p, sum(allZero))] = True
 
         ''' finalize new population & convey best individual into it if not already there '''
         if elitism:
@@ -822,7 +831,6 @@ def RunGARealOptim(params, data, objective, verbose=False, randSeed=None):
           tmp1 = np.sum(newPop*bin_to_dec, axis=1)
           tmp2 = np.sum(bestResult*bin_to_dec)
           if tmp2 not in tmp1:
-          	#if np.where(np.sum(newPop == bestResult, axis=1)==p)[0].size == 0:
             population = np.vstack((newPop, bestResult))
           else:
             population = newPop.copy()
@@ -833,13 +841,12 @@ def RunGARealOptim(params, data, objective, verbose=False, randSeed=None):
     
         # talk, maybe
         if genCnt % printFreq == 0:
-            print('Generation %d of %d: Best Score = %0.4f (%0.4f), Early Termination = %d\n\t%s (%d)'%\
-                (genCnt + 1, numGens, bestScore, bestScore/fullScore, termCount,
-                BinaryStr(bestResult), np.sum(bestResult)))
+            print('Generation %d of %d: Best Score = %0.4f, Early Termination = %d\n\t%s'%\
+                (genCnt + 1, numGens, bestScore, termCount, lstPrt(bestReal)))
             
     # Finish GP Algorithm Whoo Hoo!
-    print('Generation %d of %d: Best Score = %0.4f (%0.4f), Early Termination = %d\n\t%s (%d)'%\
-        (genCnt + 1, numGens, bestScore, bestScore/fullScore, termCount, BinaryStr(bestResult), np.sum(bestResult)))
+    print('Generation %d of %d: Best Score = %0.4f, Early Termination = %d\n\t%s'%\
+        (genCnt + 1, numGens, bestScore, termCount, lstPrt(bestReal)))
     
     ''' plot GP progress '''
     fig = plysub.make_subplots(rows=2, cols=1, print_grid=False, subplot_titles=['Best Score', 'Average Score'])
@@ -847,13 +854,13 @@ def RunGARealOptim(params, data, objective, verbose=False, randSeed=None):
     gens = len(genBest)
     xs = list(range(gens))
     fig.add_trace(go.Scatter(x=xs, y=genScores[:,0], mode='markers+lines', name='Best Score',
-        text=['%s = %0.5f'%(BinaryStr(subset), score) for (subset, score) in zip(genBest, genScores[:,0])]), 1, 1)
+        text=['%s = %0.5f'%(lstPrt(vals), score) for (vals, score) in zip(genBestReal, genScores[:,0])]), 1, 1)
     fig.add_trace(go.Scatter(x=xs, y=genScores[:,1], mode='markers+lines', name='Average Score'), 2, 1)
     # annotate the best solution
     bestAnn = dict(x=gens-1, y=np.min(genScores[:,0]), xref='x1', yref='y1', text='%s = %0.4f (%0.4f)'%\
-        (BinaryStr(bestResult), bestScore, bestScore/fullScore),
-        showarrow=True, bordercolor="#c7c7c7", borderwidth=2, borderpad=4, bgcolor="#6d72f1", opacity=0.8,
-        font={'color':'#ffffff'}, align="center", arrowhead=2, arrowsize=1, arrowwidth=2, arrowcolor="#636363")
+        (lstPrt(bestReal), bestScore), showarrow=True, bordercolor="#c7c7c7", borderwidth=2,
+        borderpad=4, bgcolor="#6d72f1", opacity=0.8, font={'color':'#ffffff'}, align="center",
+            arrowhead=2, arrowsize=1, arrowwidth=2, arrowcolor="#636363")
     # update layout
     anns = list(fig['layout']['annotations'])
     anns.append(bestAnn)    
@@ -866,9 +873,9 @@ def RunGARealOptim(params, data, objective, verbose=False, randSeed=None):
     
     ''' summarize results: GA_BEST '''
     # combine the unique best scores and solutions from each generation
-    GA_BEST = np.hstack((np.atleast_2d(genScores[:, 0]).T, genBest))
+    GA_BEST = np.hstack((np.atleast_2d(genScores[:, 0]).T, genBestReal))
     # build the results dataframe
-    indx = [BinaryStr(subset) for subset in GA_BEST[:, 1:]]
+    indx = [lstPrt(vals) for vals in GA_BEST[:, 1:]]
     GA_BEST = pd.DataFrame(index=indx, data=GA_BEST, columns=['Score']+feats)
     # compute the bests frequencies, add them in
     freqs = pd.DataFrame(data=GA_BEST.index.value_counts()/len(genBest), columns=['Frequency'])
@@ -879,7 +886,7 @@ def RunGARealOptim(params, data, objective, verbose=False, randSeed=None):
     GA_BEST = GA_BEST.iloc[np.argsort(-optimGoal*GA_BEST['Score'].values),:]
     
     # show results
-    print('%s\nGA Complete\n\tUnique Results Evaluated - %d\n\tTotal Nontrivial Solutions Possible - %d'\
+    print('%s\nGA Complete\n\tUnique Solutions Evaluated - %d\n\tTotal Nontrivial Solutions Possible - %d'\
         %(dispLine, len(allScores), 2**p-1))
     print('Top %d Solutions'%showTopRes)
     display(GA_BEST.head(showTopRes))
@@ -889,4 +896,4 @@ def RunGARealOptim(params, data, objective, verbose=False, randSeed=None):
     stpT = time.perf_counter()
     print('GA: Started on %s\n\tFinished on %s\n\tElapsed Time = %0.3f(m)'%(stt.isoformat(), stp.isoformat(), (stpT-sttT)/60))
     
-    return bestResult, bestScore, genBest, genScores, randSeed, tstamp, fig
+    return bestResult, bestReal, bestScore, genBest, genBestReal, genScores, randSeed, tstamp, fig
