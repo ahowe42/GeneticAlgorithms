@@ -2,6 +2,7 @@
 import numpy as np
 import pandas as pd
 import time
+from itertools import chain
 
 import chart_studio.plotly as ply
 import chart_studio.tools as plytool
@@ -12,6 +13,60 @@ import plotly.subplots as plysub
 
 from sklearn.linear_model import LinearRegression
 
+
+
+''' generic function to switch between binary & real encoding '''
+def EncodeBinaryReal(inputType, inputValue, bits, lowerBounds, upperBounds):
+    '''
+    Using a specified number of bits, and lower & upper real value bounds,
+    encode a list of real values as a list binary string, or a list binary
+    string as a list of real values.
+    :param inputType: 'r' = list of real values input; 'b' = list of
+        binary values
+    :param inputValue: either a list of n real values, or a single
+        list of the binary representation of n real value using the
+        number of bits indicated
+    :param bits: n-length array_like with number of bits used to encode
+        real values
+    :param lowerBounds: n-length array_like with lower bound of range
+        for real values
+    :param upperBounds: n-length array_like with upper bound of range
+        for real values
+    :return outVal: if inputType is 'r', n*sum(bits)-length list of binary
+        values; if inputType is 'b', n-length list of real values
+    '''
+    
+    if inputType == 'b': # binary in, so real out
+        # get the limits in the list of the individual values
+        binLims = [0]+np.cumsum(bits).tolist()
+        # iterate over binary strings
+        outVal = [0]*len(bits)
+        for indx, (low, hig, bt, lb, ub) in enumerate(zip(binLims[:-1], binLims[1:], bits, lowerB, upperB)):
+            # get this real value's binary representation
+            binV = inputValue[low:hig]
+            # get the powers of 2 & max value
+            exps = [2**b for b in range(bt-1,-1, -1)]
+            mx = sum(exps)
+            # compute the real value
+            realV = sum([b*e for (b, e) in zip(binV, exps)])
+            realV = lb + (ub - lb)*realV/mx
+            outVal[indx] = realV
+    elif inputType == 'r': # real in, so binary out
+        # iterate over real values
+        reBinVal = [None]*len(inputValue)
+        for indx, (realV, bt, lb, ub) in enumerate(zip(inputValue, bits, lowerB, upperB)):
+            # stepsize in range
+            steps = (ub - lb)/(2**bt-1)
+            # values distance from lower
+            dist = int((realV - lb)/steps)
+            # encode the distance into binary
+            binV = [int(b) for b in bin(int(dist))[2:].zfill(bt)]
+            reBinVal[indx] = binV
+        outVal = list(chain.from_iterable(reBinVal))
+    else:
+        raise('Input type may only be "b" for "r"')
+    
+    return outVal
 
 
 ''' generic function to make a binary string from array '''

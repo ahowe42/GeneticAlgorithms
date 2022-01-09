@@ -236,7 +236,7 @@ def RunGASubset(params, data, objective, seedSubs=[], verbose=False, randSeed=No
     the unique best solutions from all generations will be returned.
     :param params: dictionary of GA parameters:
         'initPerc': float percent of initial population filled (features selected)
-         'forceVars': array_like of feature index numbers up to p-1 to force to stay
+        'forceVars': array_like of feature index numbers up to p-1 to force to stay
             in all solutions
         'showTopSubs': integer number of best solutions to show
         'populSize': integer population size
@@ -272,7 +272,7 @@ def RunGASubset(params, data, objective, seedSubs=[], verbose=False, randSeed=No
     :return bestSubset: the best subset overall
     :return bestScore: the score of the best overall subset
     :return genBest: array of the best subset from each generation
-    :return genScores: array of the best score and the average (of finite) scores
+    :return genScores: array of the best score and the average (if finite) scores
         from each generation
     :return randSeed: the random seed used
     :return tstamp: string timestamp of the GA run
@@ -566,3 +566,327 @@ def RunGASubset(params, data, objective, seedSubs=[], verbose=False, randSeed=No
     print('GA: Started on %s\n\tFinished on %s\n\tElapsed Time = %0.3f(m)'%(stt.isoformat(), stp.isoformat(), (stpT-sttT)/60))
     
     return bestSubset, bestScore, genBest, genScores, randSeed, tstamp, fig
+    
+
+def RunGARealOptim(params, data, objective, verbose=False, randSeed=None):
+    '''
+    Run the genetic algorithm for some real-valued optimization problem, with
+    a specified dataset. Parameters for the objective function must be passed,
+    along with their names in the objective. While only params['showTopRes']
+    results will be displayed, the unique best solutions from all generations
+    will be returned.
+    :param params: dictionary of GA parameters:
+        'initPerc': float percent of initial population filled (features selected)
+        'showTopRes': integer number of best solutions to show
+        'populSize': integer population size
+        'numGens': integer number of generations
+        'noChangeTerm': integer number generations with insufficient
+            improvement before early termination
+        'convgcrit': float convergence criteria
+        'elitism': True = on, False = off
+        'matetype': 1 = sorted, 2 = roulette
+        'xoverType': 1 = single, 2 = dual, 3 = uniform
+        'probXover': float probability of crossover
+        'probMutate': float probability of mutation
+        'probEngineer': float probability of GA engineering
+        'optimGoal': 1 = maximize, -1 = minimize
+        'plotFlag': True = on, False = off
+        'printFreq': integer number of generations by which the GA will print
+            progress
+        'bits': n-length array_like with number of bits used to encode real values
+        'lowerB': n-length array_like with lower bound of range for real values
+        'upperB': n-length array_like with upper bound of range for real values
+    :param data: dictionary expected to hold two items:
+        'data': pandas dataframe of data; 1st column should be the target
+        'name': name (descriptive or perhaps filename) of data
+    :param objective: dictionary of objective function parameters:
+        'function': string function to execute whatever modeling is required and
+            return the objective score; it can return multiple items, but the
+            first must be the score; if a single item is returned, it should be
+            in a tuple
+        'arguments': dictionary of arguments to pass to the objective function;
+            should include at least 'data' and 'binary'
+    :param verbose: optional (default = false) flag to print extra info
+    :param randSeed: optional (default = none) seed for randomizer; if not passed,
+        this will be generated and printed
+    :return bestResult: the best result overall
+    :return bestScore: the score of the best overall result
+    :return genBest: array of the best result from each generation
+    :return genScores: array of the best score and the average (if finite) scores
+        from each generation
+    :return randSeed: the random seed used
+    :return tstamp: string timestamp of the GA run
+    :return fig: plotly figure of the GA progress
+    '''
+
+    # start time and timestamp
+    stt = dt.datetime.now()
+    sttT = time.perf_counter()
+    tstamp = re.sub('[^0-9]', '', stt.isoformat()[:19])
+    
+    # parse GA parameters
+    populSize = int(params['populSize'])
+    numGens = int(params['numGens'])
+    noChangeTerm = int(params['noChangeTerm'])
+    convgCrit = float(params['convgCrit'])
+    elitism = bool(params['elitism'])
+    probXover = float(params['probXover'])
+    mateType = int(params['mateType'])
+    probMutate = float(params['probMutate'])
+    optimGoal = int(params['optimGoal'])
+    plotFlag = bool(params['plotFlag'])
+    printFreq = int(params['printFreq'])
+    showTopRes = int(params['showTopRes'])
+    initPerc = float(params['initPerc'])
+    probEngineer = float(params['probEngineer'])
+    xoverType = int(params['xoverType'])
+    bits = params['bits']
+    lowerB = params['lowerB']
+    upperB = params['upperB']
+    
+    # dataframe of the bits data
+    n = len(bits) # number of optimizations
+    p = sum(bits) # total number of bits
+    bitsDF = pd.DataFrame(np.c_[bits, lowerB, UpperB], index=['Bits', 'Lower', 'Upper'],
+        columns=list(range(n)))
+    
+    # parse the data
+    dataName = data['name']
+    data = data['data']
+        
+    # parse the objective
+    objFunc = objective['function']
+    objArgs = objective['arguments'] 
+    objArgs['data'] = data
+    objStr = '%s(%s)'%(objFunc, ', '.join(['%s=%r'%(key, val) for (key, val) in objArgs.items()\
+        if key not in ['data', 'binary']]))
+    
+    # set the random state
+    if randSeed is None:
+        randSeed = int(str(time.time()).split('.')[1])
+        print('Random Seed = %d'%randSeed)
+    np.random.seed(randSeed)
+        
+    # display parameters
+    dispLine = '#'*42
+    print('%s\nGA Started on %s\n%s'%(dispLine, stt.isoformat(), dispLine))
+    print('Data: %s(n=%d, p=%d)'%(dataName, n, p))
+    print('Random Seed: %d'%randSeed)
+    print('Maximum # Generations: %d\nMininum # of Generations: %d\nConvergence Criteria: %0.8f'%(numGens,noChangeTerm,convgCrit))
+    if populSize % 2 == 1:
+        populSize += 1
+        print('!!Population Size Increased By 1 to be Even!!')
+    print('Population Size: %d'%populSize)
+    print('Initial Fill Percentage: %0.2f'%initPerc)
+    print('Initial Population Seeded with %d Subsets'%len(seedSubs))
+    print('Mutation Rate: %0.2f\nCrossover Rate: %0.2f'%(probMutate, probXover))
+    print('Crossover Method: %s'%['SINGLE','DUAL','UNIFORM'][xoverType - 1])
+    print('Mating Method: %s'%['SORTED','ROULETTE'][mateType - 1])
+    print('Elitism is: %s'%['OFF','ON'][elitism])
+    if (elitism) and (probEngineer > 0.0):
+      print('!!With Elitism ON, the probability of GA engineering has been set to 0.00!!')
+      probEngineer == 0.0
+    else:
+      print('GA Engineering Rate: %0.2f'%probEngineer)
+    print(dispLine)
+    if optimGoal == 1:
+        print('Objective: MAXIMIZE')
+    else:
+        print('Objective: MINIMIZE')
+    print('Objective Function: %s'%objStr)
+    print('Bit Encoding:')
+    display(bitsDf)
+    print(dispLine)
+      
+    ''' setup first population '''
+    # initialize the population with initPerc% 1s
+    population = (initPerc >= np.random.rand(populSize, p))
+    # talk
+    if verbose:
+        for indx in range(populSize):
+            print('%0d\n%r'%(indx, population[indx, :]))
+    
+    # now initialize more things
+    # save results by generation
+    genScores = np.zeros((numGens, 2), dtype=float)
+    genBest = np.zeros((numGens ,p), dtype=bool)
+    # current generation's best
+    bestResult = np.zeros((1, p), dtype=bool)
+    bestScore = optimGoal*-1*np.Inf
+    # previous generation's best - used for GA Engineering
+    prevGenBestResult = bestResult.copy()
+    prevGenBestScore = bestScore
+    # generations with no improvement termination counter
+    termCount = 0
+    
+    # Begin GA Algorithm Whoo Hoo!
+    for genCnt in range(numGens):        
+        ''' compute or lookup objective function values '''
+        popFitness = np.ones(populSize, dtype=float)*np.Inf
+        for popCnt in range(populSize):
+            if genCnt > 0:
+                # check if this result already evaluated, to save time
+                prevEval = np.where(np.sum(allResults == population[popCnt, :], axis=1)==p)[0]
+                if prevEval.size == 0:
+                    # evalaute
+                    objArgs['binary'] = population[popCnt, :]
+                    popFitness[popCnt] = globals()[objFunc](**objArgs)[0]
+                else:
+                    # look up existing score
+                    popFitness[popCnt] = allScores[prevEval]
+            else:
+                objArgs['binary'] = population[popCnt]
+                popFitness[popCnt] = globals()[objFunc](**objArgs)[0]
+                
+        # If optimGoal is (+), this will not change the scores, so the true max will be taken.
+        # If optimGoal is (-), the signs will all be changed, and since max(X) = min(-X),
+        # taking the maximum will really be taking the minimum.
+        optInd = np.argmax(optimGoal*popFitness)
+        optVal = popFitness[optInd]
+        
+        # save some stuff before moving along
+        genScores[genCnt,:] = (optVal, np.mean(popFitness[np.isfinite(popFitness)]))
+        genBest[genCnt] = population[optInd, :]
+        
+        ''' save all unique results & their scores '''
+        # must first convert population to decimal representation so can unique
+        tmp = np.sum(population*bin_to_dec, axis=1)
+        # now can get the indices of the unique values; yes, I know this sorts them first - and I don't really care
+        _, ind = np.unique(tmp, return_index=True)
+        if genCnt == 0:
+            # first generation, so create these arrays here
+            allScores = popFitness[ind]
+            allResults = population[ind, :]
+        else:
+            # not first generation, so append to the existing arrays
+            allScores = np.append(allScores, popFitness[ind])
+            allResults = np.vstack((allResults, population[ind,:]))
+        # ensure all* unique
+        tmp = np.sum(allResults*bin_to_dec, axis=1)
+        _, ind = np.unique(tmp, return_index=True)
+        allScores = allScores[ind]
+        allResults = allResults[ind, :]
+            	
+        ''' check for early termination '''
+        if optimGoal*genScores[genCnt, 0] > optimGoal*bestScore:
+            # this is a better score, so save it and reset the counter
+            bestScore = genScores[genCnt, 0]
+            bestResult = genBest[genCnt]
+            termCount = 1
+        #elif (optimGoal*genScores[genCnt, 0] < optimGoal*bestScore) and (elitism == False):
+        #    # if elitism is off, we can still do early termination with this
+        #    termcount += 1
+        elif abs(optimGoal*genScores[genCnt, 0] - optimGoal*bestScore) < convgCrit:
+            # "no" improvement
+            termCount += 1
+        elif (elitism  == True):
+            # with elitism on and a deterministic objective, performance is monotonically non-decreasing
+            termCount += 1
+
+        if termCount >= noChangeTerm:
+            print('Early Termination On Generation %d of %d'%(genCnt + 1, numGens))
+            genScores = genScores[:(genCnt + 1), :] # keep only up to genCnt spaces (inclusive)
+            genBest = genBest[:(genCnt + 1)]
+            break
+            
+        # don't bother with the next generation
+        if genCnt == (numGens - 1):
+            break
+    
+        ''' create the next generation '''
+        # select parents for the next generation
+        parents = OP_MateSelect(popFitness, optimGoal, mateType)
+        # crossover
+        newPop = OP_Crossover(population, parents, xoverType, probXover)
+        # mutation
+        newPop = OP_Mutate(newPop, probMutate)
+        # engineering
+        if probEngineer > 0:
+          # I check for probEngineer > 0 because I can turn this off by
+          # setting it to 0. Below we use genscores and genCnt, because
+          # bestScore and bestResult won't hold the current best if the
+          # current best solution is worse than the overall best, and elitism
+          # is off.
+          if (genCnt > 0) and (optimGoal*prevGenBestScore > optimGoal*bestScore):
+            # only call GAengineering if the previous generation best is better
+            newPop = OP_GAEngineering(genBest[genCnt,:], prevGenBestResult, newPop, probEngineer)
+            prevGenBestResult = bestResult
+            prevGenBestScore = bestScore
+        # fix all-zero chromosomes
+        allZero = np.sum(newPop*bin_to_dec, axis=1)==0
+        newPop[allZero, np.random.randint(0, p, sum(allZero))] = True
+
+        ''' finalize new population & convey best individual into it if not already there '''
+        if elitism:
+          # check if best is currently in new_pop
+          tmp1 = np.sum(newPop*bin_to_dec, axis=1)
+          tmp2 = np.sum(bestResult*bin_to_dec)
+          if tmp2 not in tmp1:
+          	#if np.where(np.sum(newPop == bestResult, axis=1)==p)[0].size == 0:
+            population = np.vstack((newPop, bestResult))
+          else:
+            population = newPop.copy()
+        else:
+          population = newPop.copy()
+        # readjust in case population grew
+        populSize = len(population)
+    
+        # talk, maybe
+        if genCnt % printFreq == 0:
+            print('Generation %d of %d: Best Score = %0.4f (%0.4f), Early Termination = %d\n\t%s (%d)'%\
+                (genCnt + 1, numGens, bestScore, bestScore/fullScore, termCount,
+                BinaryStr(bestResult), np.sum(bestResult)))
+            
+    # Finish GP Algorithm Whoo Hoo!
+    print('Generation %d of %d: Best Score = %0.4f (%0.4f), Early Termination = %d\n\t%s (%d)'%\
+        (genCnt + 1, numGens, bestScore, bestScore/fullScore, termCount, BinaryStr(bestResult), np.sum(bestResult)))
+    
+    ''' plot GP progress '''
+    fig = plysub.make_subplots(rows=2, cols=1, print_grid=False, subplot_titles=['Best Score', 'Average Score'])
+    # build traces
+    gens = len(genBest)
+    xs = list(range(gens))
+    fig.add_trace(go.Scatter(x=xs, y=genScores[:,0], mode='markers+lines', name='Best Score',
+        text=['%s = %0.5f'%(BinaryStr(subset), score) for (subset, score) in zip(genBest, genScores[:,0])]), 1, 1)
+    fig.add_trace(go.Scatter(x=xs, y=genScores[:,1], mode='markers+lines', name='Average Score'), 2, 1)
+    # annotate the best solution
+    bestAnn = dict(x=gens-1, y=np.min(genScores[:,0]), xref='x1', yref='y1', text='%s = %0.4f (%0.4f)'%\
+        (BinaryStr(bestResult), bestScore, bestScore/fullScore),
+        showarrow=True, bordercolor="#c7c7c7", borderwidth=2, borderpad=4, bgcolor="#6d72f1", opacity=0.8,
+        font={'color':'#ffffff'}, align="center", arrowhead=2, arrowsize=1, arrowwidth=2, arrowcolor="#636363")
+    # update layout
+    anns = list(fig['layout']['annotations'])
+    anns.append(bestAnn)    
+    fig.update_layout(title='GA Progress Resuls by Generation (%s, %s, %s)'%(dataName, objStr, tstamp),
+        annotations=anns)
+    fig['layout']['xaxis2'].update(title='Generation')
+    if plotFlag:
+        plyoff.plot(fig, filename='../output/GAProgress_%s_%s_%s.html'%(tstamp, re.sub('[^0-9A-Za-z_]', '_', dataName), objFunc),
+            auto_open=True, include_mathjax='cdn')
+    
+    ''' summarize results: GA_BEST '''
+    # combine the unique best scores and solutions from each generation
+    GA_BEST = np.hstack((np.atleast_2d(genScores[:, 0]).T, genBest))
+    # build the results dataframe
+    indx = [BinaryStr(subset) for subset in GA_BEST[:, 1:]]
+    GA_BEST = pd.DataFrame(index=indx, data=GA_BEST, columns=['Score']+feats)
+    # compute the bests frequencies, add them in
+    freqs = pd.DataFrame(data=GA_BEST.index.value_counts()/len(genBest), columns=['Frequency'])
+    GA_BEST = GA_BEST.join(freqs)
+    # drop duplicates
+    GA_BEST = GA_BEST.drop_duplicates()
+    # now sort so best is at top
+    GA_BEST = GA_BEST.iloc[np.argsort(-optimGoal*GA_BEST['Score'].values),:]
+    
+    # show results
+    print('%s\nGA Complete\n\tUnique Results Evaluated - %d\n\tTotal Nontrivial Solutions Possible - %d'\
+        %(dispLine, len(allScores), 2**p-1))
+    print('Top %d Solutions'%showTopRes)
+    display(GA_BEST.head(showTopRes))
+    
+    # stop time
+    stp = dt.datetime.now()
+    stpT = time.perf_counter()
+    print('GA: Started on %s\n\tFinished on %s\n\tElapsed Time = %0.3f(m)'%(stt.isoformat(), stp.isoformat(), (stpT-sttT)/60))
+    
+    return bestResult, bestScore, genBest, genScores, randSeed, tstamp, fig
