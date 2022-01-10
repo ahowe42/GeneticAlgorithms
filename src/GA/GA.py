@@ -597,15 +597,15 @@ def RunGARealOptim(params, data, objective, verbose=False, randSeed=None):
         'lowerB': n-length array_like with lower bound of range for real values
         'upperB': n-length array_like with upper bound of range for real values
     :param data: dictionary expected to hold two items:
-        'data': pandas dataframe of data; 1st column should be the target
+        'data': dataset as expected by the objective function
         'name': name (descriptive or perhaps filename) of data
     :param objective: dictionary of objective function parameters:
-        'function': string function to execute whatever modeling is required and
+        'function': function to execute whatever modeling is required and
             return the objective score; it can return multiple items, but the
             first must be the score; if a single item is returned, it should be
             in a tuple
         'arguments': dictionary of arguments to pass to the objective function;
-            should include at least 'data' and 'values'
+            should include at least 'data' and 'params'
     :param verbose: optional (default = false) flag to print extra info
     :param randSeed: optional (default = none) seed for randomizer; if not passed,
         this will be generated and printed
@@ -651,8 +651,10 @@ def RunGARealOptim(params, data, objective, verbose=False, randSeed=None):
     n = len(bits) # number of optimizations
     p = sum(bits) # total number of bits
     feats = ['Real%02d'%v for v in list(range(n))]
-    bitsDF = pd.DataFrame(np.c_[bits, lowerB, UpperB], index=['Bits', 'Lower', 'Upper'],
+    bitsDF = pd.DataFrame(np.c_[bits, lowerB, upperB].T, index=['Bits', 'Lower', 'Upper'],
         columns=feats)
+    # this is used later on for creating a numeric hash from the bits
+    bin_to_dec = 2**(np.arange(p))
     
     # parse the data
     dataName = data['name']
@@ -663,7 +665,7 @@ def RunGARealOptim(params, data, objective, verbose=False, randSeed=None):
     objArgs = objective['arguments'] 
     objArgs['data'] = data
     objStr = '%s(%s)'%(objFunc, ', '.join(['%s=%r'%(key, val) for (key, val) in objArgs.items()\
-        if key not in ['data', 'values']]))
+        if key not in ['data', 'params']]))
     
     # set the random state
     if randSeed is None:
@@ -674,7 +676,7 @@ def RunGARealOptim(params, data, objective, verbose=False, randSeed=None):
     # display parameters
     dispLine = '#'*42
     print('%s\nGA Started on %s\n%s'%(dispLine, stt.isoformat(), dispLine))
-    print('Data: %s(n=%d, p=%d)'%(dataName, n, p))
+    print('Data: %s(n=%d)'%(dataName, n))
     print('Random Seed: %d'%randSeed)
     print('Maximum # Generations: %d\nMininum # of Generations: %d\nConvergence Criteria: %0.8f'%(numGens,noChangeTerm,convgCrit))
     if populSize % 2 == 1:
@@ -682,7 +684,6 @@ def RunGARealOptim(params, data, objective, verbose=False, randSeed=None):
         print('!!Population Size Increased By 1 to be Even!!')
     print('Population Size: %d'%populSize)
     print('Initial Fill Percentage: %0.2f'%initPerc)
-    print('Initial Population Seeded with %d Subsets'%len(seedSubs))
     print('Mutation Rate: %0.2f\nCrossover Rate: %0.2f'%(probMutate, probXover))
     print('Crossover Method: %s'%['SINGLE','DUAL','UNIFORM'][xoverType - 1])
     print('Mating Method: %s'%['SORTED','ROULETTE'][mateType - 1])
@@ -699,7 +700,7 @@ def RunGARealOptim(params, data, objective, verbose=False, randSeed=None):
         print('Objective: MINIMIZE')
     print('Objective Function: %s'%objStr)
     print('Bit Encoding:')
-    display(bitsDf)
+    display(bitsDF)
     print(dispLine)
       
     ''' setup first population '''
@@ -738,13 +739,13 @@ def RunGARealOptim(params, data, objective, verbose=False, randSeed=None):
                 prevEval = np.where(np.sum(allReals == popReals[popCnt, :], axis=1)==n)[0]
                 if prevEval.size == 0:
                     # evalaute
-                    objArgs['values'] = popReals[popCnt,:]
+                    objArgs['params'] = popReals[popCnt,:]
                     popFitness[popCnt] = globals()[objFunc](**objArgs)[0]
                 else:
                     # look up existing score
                     popFitness[popCnt] = allScores[prevEval]                 
             else:
-                objArgs['values'] = popReals[popCnt]
+                objArgs['params'] = popReals[popCnt]
                 popFitness[popCnt] = globals()[objFunc](**objArgs)[0]
                 
         # If optimGoal is (+), this will not change the scores, so the true max will be taken.
@@ -760,7 +761,7 @@ def RunGARealOptim(params, data, objective, verbose=False, randSeed=None):
         
         ''' save all unique results & their scores '''
         # now can get the indices of the unique values; yes, I know this sorts them first - and I don't really care
-        _, ind = np.unique(popReals, return_index=True)
+        _, ind = np.unique(popReals, axis=0, return_index=True)
         if genCnt == 0:
             # first generation, so create these arrays here
             allScores = popFitness[ind]
@@ -772,7 +773,7 @@ def RunGARealOptim(params, data, objective, verbose=False, randSeed=None):
             allResults = np.vstack((allResults, population[ind, :]))
             allReals = np.vstack((allReals, popReals[ind, :]))
         # ensure all* unique
-        _, ind = np.unique(allReals, return_index=True)
+        _, ind = np.unique(allReals, axis=0, return_index=True)
         allScores = allScores[ind]
         allResults = allResults[ind, :]
         allReals = allReals[ind, :]
@@ -857,7 +858,7 @@ def RunGARealOptim(params, data, objective, verbose=False, randSeed=None):
         text=['%s = %0.5f'%(lstPrt(vals), score) for (vals, score) in zip(genBestReal, genScores[:,0])]), 1, 1)
     fig.add_trace(go.Scatter(x=xs, y=genScores[:,1], mode='markers+lines', name='Average Score'), 2, 1)
     # annotate the best solution
-    bestAnn = dict(x=gens-1, y=np.min(genScores[:,0]), xref='x1', yref='y1', text='%s = %0.4f (%0.4f)'%\
+    bestAnn = dict(x=gens-1, y=np.min(genScores[:,0]), xref='x1', yref='y1', text='%s = %0.4f'%\
         (lstPrt(bestReal), bestScore), showarrow=True, bordercolor="#c7c7c7", borderwidth=2,
         borderpad=4, bgcolor="#6d72f1", opacity=0.8, font={'color':'#ffffff'}, align="center",
             arrowhead=2, arrowsize=1, arrowwidth=2, arrowcolor="#636363")

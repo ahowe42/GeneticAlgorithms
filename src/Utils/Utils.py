@@ -17,7 +17,7 @@ from sklearn.linear_model import LinearRegression
 
 
     
-def PDFParamRanges(data, dist):
+def PDFParamRanges(data, dist, scale=3):
     '''
     Computes, for a specified probability density, the range in which
     the PDF parameters would be expected to be found, given a dataset.
@@ -33,6 +33,7 @@ def PDFParamRanges(data, dist):
         CAU - Cauchy: location
         LPL - Laplace: location
         PAR - Pareto: shape
+    :param scale: integer value to inflate estimated ranges
     :return lb: lower bound of parameters
     :return ub: upper bound of parameters
     '''
@@ -42,11 +43,11 @@ def PDFParamRanges(data, dist):
     xbar = np.mean(data)
     s = np.std(data)
     logx = np.log(data)
-    twos = np.array([-3, 3])
+    inflate = np.array([-scale, scale])
     sqn = math.sqrt(n)
 
     if dist == 'NRM':
-        mnci = xbar + twos*s/sqn
+        mnci = xbar + inflate*s/sqn
         lb = [min(mnci), 0.0001]
         ub = [max(mnci), s*1.5]
     elif dist == 'GAM':
@@ -54,25 +55,25 @@ def PDFParamRanges(data, dist):
         lb = [0.5*p for p in phat]
         ub = [1.5*p for p in phat]
     elif dist == 'LOG':
-        mnci = np.mean(logx) + twos*np.std(logx)/sqn
+        mnci = np.mean(logx) + inflate*np.std(logx)/sqn
         lb = [min(mnci), 0.0001]
         ub = [max(mnci), s*1.5]
     elif dist == 'EXP':
-        lambdaci = 1/(xbar + twos*(xbar**2)/sqn)
+        lambdaci = 1/(xbar + inflate*(xbar**2)/sqn)
         lb = [max([0, min(lambdaci)])]
         ub = [max(lambdaci)]
     elif dist == 'CHI':
         lb = [0]
-        ub = [xbar + 2*2*xbar/sqn]
+        ub = [xbar + scale*2*xbar/sqn]
     elif dist == 'STU':
         lb = [0]
         ub = [abs(1.5*(-2*s**2)/(1 - s**2))]
     elif dist == 'CAU':
-        mnci = xbar + twos*s/sqn
+        mnci = xbar + inflate*s/sqn
         lb = [min(mnci)]
         ub = [max(mnci)]
     elif dist == 'LPL':
-        mnci = xbar + twos*s/sqn
+        mnci = xbar + inflate*s/sqn
         lb = [min(mnci), 0.0001]
         ub = [max(mnci), s*1.5]
     elif dist == 'PAR':
@@ -109,7 +110,8 @@ def EncodeBinaryReal(inputType, inputValue, bits, lowerBounds, upperBounds):
         binLims = [0]+np.cumsum(bits).tolist()
         # iterate over binary strings
         outVal = [0]*len(bits)
-        for indx, (low, hig, bt, lb, ub) in enumerate(zip(binLims[:-1], binLims[1:], bits, lowerB, upperB)):
+        for indx, (low, hig, bt, lb, ub) in enumerate(zip(binLims[:-1],
+            binLims[1:], bits, lowerBounds, upperBounds)):
             # get this real value's binary representation
             binV = inputValue[low:hig]
             # get the powers of 2 & max value
