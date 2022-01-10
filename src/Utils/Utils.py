@@ -16,57 +16,6 @@ import plotly.subplots as plysub
 from sklearn.linear_model import LinearRegression
 
 
-
-def ComputeLikelihood(data, params, dist):
-    '''
-    For a specified dataset and parameters, compute the probability
-    densities for the observations and also the log likelihood for
-    the given parameters.
-    :param data: array_like vector of data
-    :param dist: name of distribution; the choices and the 
-        expected relevant parameters are listed here; even if
-        there is only a single parameter for a distribution, it
-        should be in a tuple or list:
-        NRM - Gaussian: location, scale
-        GAM - Gamma: location, scale, shape
-        LOG - Lognormal: Location, scale
-        EXP - Exponential: scale
-        CHI - Chi-Squared: degrees of freedom
-        STU - Student's t: degrees of freedom
-        CAU - Cauchy: location
-        LPL - Laplace: location
-        PAR - Pareto: shape
-    :return loglike: scalar value for the log likelihood
-    :return probs: array_like of the same size of data holding the
-        probability densities
-    '''
-
-    if dist == 'NRM': # https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.norm.html
-        probs = stt.norm.pdf(data, loc=params[0], scale=params[1])
-    elif dist == 'GAM': # https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.gamma.html
-        probs = stt.gamma.pdf(data, loc=params[0], scale=params[1], a=params[2])
-    elif dist == 'LOG': # https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.lognorm.html
-        probs = stt.lognorm.pdf(data, s=1, loc=params[0], scale=params[1])
-    elif dist == 'EXP': # https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.expon.html
-        probs = stt.expon.pdf(data, scale=params[0])
-    elif dist == 'CHI': # https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.chi2.html
-        probs = stt.chi2.pdf(data, df=params[0])
-    elif dist == 'STU': # https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.t.html
-        probs = stt.t.pdf(data, df=params[0])
-    elif dist == 'CAU': # https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.cauchy.html
-        probs = stt.cauchy.pdf(data, loc=params[0])
-    elif dist == 'LPL': # https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.laplace.html
-        probs = stt.laplace.pdf(data, loc=params[0])
-    elif dist == 'PAR': # https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.pareto.html
-        probs = stt.pareto.pdf(data, b=params[0])
-    else:
-        raise ValueError('%s = Invalid distribution, please see docstring'%dist)
-     
-    # finally, compute the log-likelihood
-    loglike = np.log(probs).sum()
-    
-    return loglike, probs
-    
     
 def PDFParamRanges(data, dist):
     '''
