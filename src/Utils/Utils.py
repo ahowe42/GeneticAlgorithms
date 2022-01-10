@@ -1,8 +1,10 @@
 ''' This module holds generic utility functions. '''
+import math
 import numpy as np
 import pandas as pd
 import time
 from itertools import chain
+import scipy.stats as stt
 
 import chart_studio.plotly as ply
 import chart_studio.tools as plytool
@@ -15,7 +17,124 @@ from sklearn.linear_model import LinearRegression
 
 
 
-''' generic function to switch between binary & real encoding '''
+def ComputeLikelihood(data, params, dist):
+    '''
+    For a specified dataset and parameters, compute the probability
+    densities for the observations and also the log likelihood for
+    the given parameters.
+    :param data: array_like vector of data
+    :param dist: name of distribution; the choices and the 
+        expected relevant parameters are listed here; even if
+        there is only a single parameter for a distribution, it
+        should be in a tuple or list:
+        NRM - Gaussian: location, scale
+        GAM - Gamma: location, scale, shape
+        LOG - Lognormal: Location, scale
+        EXP - Exponential: scale
+        CHI - Chi-Squared: degrees of freedom
+        STU - Student's t: degrees of freedom
+        CAU - Cauchy: location
+        LPL - Laplace: location
+        PAR - Pareto: shape
+    :return loglike: scalar value for the log likelihood
+    :return probs: array_like of the same size of data holding the
+        probability densities
+    '''
+
+    if dist == 'NRM': # https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.norm.html
+        probs = stt.norm.pdf(data, loc=params[0], scale=params[1])
+    elif dist == 'GAM': # https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.gamma.html
+        probs = stt.gamma.pdf(data, loc=params[0], scale=params[1], a=params[2])
+    elif dist == 'LOG': # https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.lognorm.html
+        probs = stt.lognorm.pdf(data, s=1, loc=params[0], scale=params[1])
+    elif dist == 'EXP': # https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.expon.html
+        probs = stt.expon.pdf(data, scale=params[0])
+    elif dist == 'CHI': # https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.chi2.html
+        probs = stt.chi2.pdf(data, df=params[0])
+    elif dist == 'STU': # https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.t.html
+        probs = stt.t.pdf(data, df=params[0])
+    elif dist == 'CAU': # https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.cauchy.html
+        probs = stt.cauchy.pdf(data, loc=params[0])
+    elif dist == 'LPL': # https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.laplace.html
+        probs = stt.laplace.pdf(data, loc=params[0])
+    elif dist == 'PAR': # https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.pareto.html
+        probs = stt.pareto.pdf(data, b=params[0])
+    else:
+        raise ValueError('%s = Invalid distribution, please see docstring'%dist)
+     
+    # finally, compute the log-likelihood
+    loglike = np.log(probs).sum()
+    
+    return loglike, probs
+    
+    
+def PDFParamRanges(data, dist):
+    '''
+    Computes, for a specified probability density, the range in which
+    the PDF parameters would be expected to be found, given a dataset.
+    :param data: array_like vector of data
+    :param dist: name of distribution; the choices and their 
+        relevant parameters are:
+        NRM - Gaussian: location, scale
+        GAM - Gamma: location, scale, shape
+        LOG - Lognormal: Location, scale
+        EXP - Exponential: scale
+        CHI - Chi-Squared: degrees of freedom
+        STU - Student's t: degrees of freedom
+        CAU - Cauchy: location
+        LPL - Laplace: location
+        PAR - Pareto: shape
+    :return lb: lower bound of parameters
+    :return ub: upper bound of parameters
+    '''
+    
+    # setup some stuff
+    n = len(data)
+    xbar = np.mean(data)
+    s = np.std(data)
+    logx = np.log(data)
+    twos = np.array([-3, 3])
+    sqn = math.sqrt(n)
+
+    if dist == 'NRM':
+        mnci = xbar + twos*s/sqn
+        lb = [min(mnci), 0.0001]
+        ub = [max(mnci), s*1.5]
+    elif dist == 'GAM':
+        phat = stt.gamma.fit(data)
+        lb = [0.5*p for p in phat]
+        ub = [1.5*p for p in phat]
+    elif dist == 'LOG':
+        mnci = np.mean(logx) + twos*np.std(logx)/sqn
+        lb = [min(mnci), 0.0001]
+        ub = [max(mnci), s*1.5]
+    elif dist == 'EXP':
+        lambdaci = 1/(xbar + twos*(xbar**2)/sqn)
+        lb = [max([0, min(lambdaci)])]
+        ub = [max(lambdaci)]
+    elif dist == 'CHI':
+        lb = [0]
+        ub = [xbar + 2*2*xbar/sqn]
+    elif dist == 'STU':
+        lb = [0]
+        ub = [abs(1.5*(-2*s**2)/(1 - s**2))]
+    elif dist == 'CAU':
+        mnci = xbar + twos*s/sqn
+        lb = [min(mnci)]
+        ub = [max(mnci)]
+    elif dist == 'LPL':
+        mnci = xbar + twos*s/sqn
+        lb = [min(mnci), 0.0001]
+        ub = [max(mnci), s*1.5]
+    elif dist == 'PAR':
+        lb = [0]
+        ub = [1.5*n/np.sum(np.log(1 + data))]
+    else:
+        raise ValueError('%s = Invalid distribution, please see docstring'%dist)
+        
+    return lb, ub
+
+
 def EncodeBinaryReal(inputType, inputValue, bits, lowerBounds, upperBounds):
     '''
     Using a specified number of bits, and lower & upper real value bounds,
@@ -69,7 +188,6 @@ def EncodeBinaryReal(inputType, inputValue, bits, lowerBounds, upperBounds):
     return outVal
 
 
-''' generic function to make a binary string from array '''
 def BinaryStr(subset):
 		'''
 		Make a nice binary string of the form '1010' from an input
@@ -80,7 +198,6 @@ def BinaryStr(subset):
 		return ''.join([str(int(flg)) for flg in subset])
 
 
-''' generic function to perform weighted random selection '''
 def RandomWeightedSelect(keys, wats, randSeed=None):
     '''
     Randomly select an item from a list, according to a set of
