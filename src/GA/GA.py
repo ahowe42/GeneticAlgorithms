@@ -620,7 +620,7 @@ def RunGARealOptim(params, data, objective, verbose=False, randSeed=None):
     '''
     
     # lambda function for printing list of floats
-    lstPrt = lambda x: '['+','.join(['%0.4f'%val for val in x])+']'
+    lstPrt = lambda x: '['+','.join(['%0.4f'%val for val in x.squeeze()])+']'
 
     # start time and timestamp
     stt = dt.datetime.now()
