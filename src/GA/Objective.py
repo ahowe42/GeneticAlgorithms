@@ -16,6 +16,53 @@ from Utils.Utils import *
 
 
 
+def MinFunctionValue(func, params, data=None):
+    '''
+    Compute the value of a specified classical optimization test function, several
+    of which are listed here: https://en.wikipedia.org/wiki/Test_functions_for_optimization.
+    The input vector is incorrectly named "params" for compatibility with the GA
+    running function, and the data argument is not used.
+    :param func: function name; one of 'Rastrigin', 'Ackley', 'Sphere', 'Rosenbrock',
+        'Goldstein-price', 'Booth', or 'Bukin6'
+    :param params: array_like vector of values for evaluation
+    :param data: unused, here for compatibility with the GA runner
+    :return val: single element list of value of the specified function at the
+        specified input vector
+    '''
+    
+    # get some aliases
+    x = params[0]
+    try:
+        y = params[1]
+    except IndexError as err:
+        pass
+    
+    # get the number of dimensions
+    n = len(params)
+    
+    if func == 'Rastrigin':
+        val = 10*n + sum([x**2 - 10*math.cos(2*np.pi*x) for x in params])
+    elif func == 'Ackley':
+        val = -20*math.exp(-0.2*math.sqrt(0.5*(x**2 + y**2))) + \
+            -math.exp(0.5*(math.cos(2*np.pi*x) + math.cos(2*np.pi*y))) + \
+            math.exp(1) + 20
+    elif func == 'Sphere':
+        val = sum([x**2 for x in params])
+    elif func == 'Rosenbrock':
+        val = sum([100*(params[i+1]-params[i]**2)**2 + (1-params[i])**2 for i in range(len(params)-1)])
+    elif func == 'Beale':
+        val = (1.5 - x + x*y)**2 + (2.25 - x + x*y**2)**2 + (2.625 - x + x*y**3)
+    elif func == 'Goldstein-price':
+        val = (1 + ((x + y + 1)**2)*(19 - 14*x + 3*x**2 - 14*y + 6*x*y + 3*y**2))*\
+            (30 + ((2*x - 3*y)**2)*(18 - 32*x + 12*x**2 + 48*y - 36*x*y + 27*y**2))
+    elif func == 'Booth':
+        val = (x + 2*y - 7)**2 + (2*x + y - 5)**2
+    elif func == 'Bukin6':
+        val = 100*math.sqrt(abs(y - 0.01*x**2)) + 0.01*abs(x + 10)
+    
+    return [val]
+
+
 def ComputeLikelihood(data, params, dist):
     '''
     For a specified dataset and parameters, compute the probability
