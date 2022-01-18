@@ -23,7 +23,7 @@ def MinFunctionValue(func, params, data=None):
     The input vector is incorrectly named "params" for compatibility with the GA
     running function, and the data argument is not used.
     :param func: function name; one of 'Rastrigin', 'Ackley', 'Sphere', 'Rosenbrock',
-        'Goldstein-price', 'Booth', or 'Bukin6'
+        'Goldstein-price', 'Booth', 'Bukin6', 'Matyas', or Levi13
     :param params: array_like vector of values for evaluation
     :param data: unused, here for compatibility with the GA runner
     :return val: single element list of value of the specified function at the
@@ -34,6 +34,7 @@ def MinFunctionValue(func, params, data=None):
     x = params[0]
     try:
         y = params[1]
+        xy = x*y
     except IndexError as err:
         pass
     
@@ -51,15 +52,19 @@ def MinFunctionValue(func, params, data=None):
     elif func == 'Rosenbrock':
         val = sum([100*(params[i+1]-params[i]**2)**2 + (1-params[i])**2 for i in range(len(params)-1)])
     elif func == 'Beale':
-        val = (1.5 - x + x*y)**2 + (2.25 - x + x*y**2)**2 + (2.625 - x + x*y**3)
+        val = (1.5 - x + xy)**2 + (2.25 - x + x*y**2)**2 + (2.625 - x + x*y**3)
     elif func == 'Goldstein-price':
-        val = (1 + ((x + y + 1)**2)*(19 - 14*x + 3*x**2 - 14*y + 6*x*y + 3*y**2))*\
-            (30 + ((2*x - 3*y)**2)*(18 - 32*x + 12*x**2 + 48*y - 36*x*y + 27*y**2))
+        val = (1 + ((x + y + 1)**2)*(19 - 14*x + 3*x**2 - 14*y + 6*xy + 3*y**2))*\
+            (30 + ((2*x - 3*y)**2)*(18 - 32*x + 12*x**2 + 48*y - 36*xy + 27*y**2))
     elif func == 'Booth':
         val = (x + 2*y - 7)**2 + (2*x + y - 5)**2
     elif func == 'Bukin6':
         val = 100*math.sqrt(abs(y - 0.01*x**2)) + 0.01*abs(x + 10)
-    
+    elif func == 'Matyas':
+        val = 0.26*(x**2 + y**2) - 0.48*xy
+    elif func == 'Levi13':
+        val = math.sin(3*np.pi*x)**2 + ((x-1)**2)*(1 + math.sin(3*np.pi*y)**2) + \
+            ((y-1)**2)*(1 + math.sin(2*np.pi*y)**2)
     return [val]
 
 
