@@ -23,7 +23,7 @@ def MinFunctionValue(func, params, data=None):
     The input vector is incorrectly named "params" for compatibility with the GA
     running function, and the data argument is not used.
     :param func: function name; one of 'Rastrigin', 'Ackley', 'Sphere', 'Rosenbrock',
-        'Goldstein-price', 'Booth', 'Bukin6', 'Matyas', or Levi13
+        'Goldstein-price', 'Booth', 'Bukin6', 'Matyas', 'Levi13', 'Himmelblau', 'Easom'
     :param params: array_like vector of values for evaluation
     :param data: unused, here for compatibility with the GA runner
     :return val: single element list of value of the specified function at the
@@ -65,6 +65,10 @@ def MinFunctionValue(func, params, data=None):
     elif func == 'Levi13':
         val = math.sin(3*np.pi*x)**2 + ((x-1)**2)*(1 + math.sin(3*np.pi*y)**2) + \
             ((y-1)**2)*(1 + math.sin(2*np.pi*y)**2)
+    elif func == 'Himmelblau':
+        val = (x**2 + y - 11)**2 + (x + y**2 - 7)**2
+    elif func == 'Easom':
+        val = -math.cos(x)*math.cos(y)*math.exp(-((x-np.pi)**2 + (y-np.pi)**2))
     return [val]
 
 
