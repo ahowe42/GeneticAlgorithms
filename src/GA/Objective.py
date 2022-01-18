@@ -20,10 +20,13 @@ def MinFunctionValue(func, params, data=None):
     '''
     Compute the value of a specified classical optimization test function, several
     of which are listed here: https://en.wikipedia.org/wiki/Test_functions_for_optimization.
-    The input vector is incorrectly named "params" for compatibility with the GA
+    The input vector is incorrectly named "params" for compatibility with the GA. All
+    functions require at least 2 input dimensions. Those that can accept > 2 are: Rastrigin,
+    Sphere, Rosenbrock, Styblinsky-Tang.
     running function, and the data argument is not used.
     :param func: function name; one of 'Rastrigin', 'Ackley', 'Sphere', 'Rosenbrock',
-        'Goldstein-price', 'Booth', 'Bukin6', 'Matyas', 'Levi13', 'Himmelblau', 'Easom'
+        'Goldstein-price', 'Booth', 'Bukin6', 'Matyas', 'Levi13', 'Himmelblau', 'Easom',
+        'Styblinsky-Tang'
     :param params: array_like vector of values for evaluation
     :param data: unused, here for compatibility with the GA runner
     :return val: single element list of value of the specified function at the
@@ -69,6 +72,8 @@ def MinFunctionValue(func, params, data=None):
         val = (x**2 + y - 11)**2 + (x + y**2 - 7)**2
     elif func == 'Easom':
         val = -math.cos(x)*math.cos(y)*math.exp(-((x-np.pi)**2 + (y-np.pi)**2))
+    elif func == 'Styblinsky-Tang':
+        val = sum([x**4 - 16*x**2 + 5*x for x in params])/2
     return [val]
 
 
