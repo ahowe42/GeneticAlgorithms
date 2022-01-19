@@ -523,7 +523,7 @@ def RunGASubset(params, data, objective, seedSubs=[], verbose=False, randSeed=No
         text=['%s = %0.5f'%(BinaryStr(subset), score) for (subset, score) in zip(genBest, genScores[:,0])]), 1, 1)
     fig.add_trace(go.Scatter(x=xs, y=genScores[:,1], mode='markers+lines', name='Average Score'), 2, 1)
     # annotate the best solution
-    bestAnn = dict(x=gens-1, y=np.min(genScores[:,0]), xref='x1', yref='y1', text='%s = %0.4f (%0.4f)'%\
+    bestAnn = dict(x=gens-1, y=bestScore, xref='x1', yref='y1', text='%s = %0.4f (%0.4f)'%\
         (BinaryStr(bestSubset), bestScore, bestScore/fullScore),
         showarrow=True, bordercolor="#c7c7c7", borderwidth=2, borderpad=4, bgcolor="#6d72f1", opacity=0.8,
         font={'color':'#ffffff'}, align="center", arrowhead=2, arrowsize=1, arrowwidth=2, arrowcolor="#636363")
@@ -858,7 +858,7 @@ def RunGARealOptim(params, data, objective, verbose=False, randSeed=None):
         text=['%s = %0.5f'%(lstPrt(vals), score) for (vals, score) in zip(genBestReal, genScores[:,0])]), 1, 1)
     fig.add_trace(go.Scatter(x=xs, y=genScores[:,1], mode='markers+lines', name='Average Score'), 2, 1)
     # annotate the best solution
-    bestAnn = dict(x=gens-1, y=np.min(genScores[:,0]), xref='x1', yref='y1', text='%s = %0.4f'%\
+    bestAnn = dict(x=gens-1, y=bestScore, xref='x1', yref='y1', text='%s = %0.4f'%\
         (lstPrt(bestReal), bestScore), showarrow=True, bordercolor="#c7c7c7", borderwidth=2,
         borderpad=4, bgcolor="#6d72f1", opacity=0.8, font={'color':'#ffffff'}, align="center",
             arrowhead=2, arrowsize=1, arrowwidth=2, arrowcolor="#636363")
