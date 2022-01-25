@@ -132,7 +132,7 @@ def OP_Crossover(population, parents, xoverType, probXover):
         dad = population[parents[matecnt,0],:]
         mom = population[parents[matecnt,1],:]
         if probXover > np.random.rand():     # crossover
-          xoverpoints = xover_rate > np.random.rand(p)
+          xoverpoints = probXover > np.random.rand(p)
           offspring1[matecnt,:] = dad*xoverpoints + mom*~xoverpoints
           offspring2[matecnt,:] = dad*~xoverpoints + mom*xoverpoints
         else:                           # genetic replictaion
