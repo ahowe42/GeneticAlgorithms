@@ -211,12 +211,12 @@ def OP_MateSelect(popFitness, optimGoal, meth):
             parents = np.insert(parents, 0, stdIndex[0])
             populSize += 1
         # randomly resort then pair up
-        parents = np.reshape(parents[np.random.permutation(populSize)], (populSize/2, 2))
+        parents = np.reshape(parents[np.random.permutation(populSize)], (populSize//2, 2))
 
         # 20160225 JAH don't want an uneven population size (often from Elitism) to result in
         # such fast population growth, so randomly cull one mating pair, with frequency relative
         # to their average scores (worst avg score is most likely to be culled)
-        if poulSize % 2 == 1:
+        if populSize % 2 == 1:
             # compute the parent's avg scores, then get the best<>worst sorted 1-based indexes
             srtAvgScs = np.argsort(np.sum(popFitness[parents], axis = 1)*(-optimGoal))+1
             # create the (0,1] bin upper bounds
