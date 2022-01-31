@@ -144,10 +144,10 @@ def RegressionMetric(data, subset, estim=None, metric='RMSE', optimGoal=-1):
         (1 = maximize, -1 = minimize); this is only used to put a sign
         on a returned np.inf, in the case of an error
     :return metricVal: single-element tuple holding the value of the
-        specified metric from a linear fit between the tree results
-        and the target data column; if an error occurs np.inf is returned
-    :return preds: array-like of predictions using linear regression model
-    :return estim: fit linear regression estimator
+        specified metric from a regression fit between the subset of
+        features and the target data column; if an error occurs np.inf is returned
+    :return preds: array-like of predictions using specified regression model
+    :return estim: fit regression estimator
     '''
     
     # set the estimator if needed
@@ -199,10 +199,11 @@ def ClassificationMetric(data, subset, estim=None, metric='accuracy', optimGoal=
         (1 = maximize, -1 = minimize); this is only used to put a sign
         on a returned np.inf, in the case of an error
     :return metricVal: single-element tuple holding the value of the
-        specified metric from a linear fit between the tree results
-        and the target data column; if an error occurs np.inf is returned
-    :return preds: array-like of predictions using linear regression model
-    :return estim: fit decision tree estimator
+        specified metric from a classification model fit between the
+        subset of fetures and the target data column; if an error occurs
+        np.inf is returned
+    :return preds: array-like of predictions using specified classification model
+    :return estim: fit classifiction estimator
     '''
     
     # set the estimator if needed
