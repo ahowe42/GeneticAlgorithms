@@ -555,9 +555,8 @@ def RunGASubset(params, data, objective, seedSubs=[], verbose=False, randSeed=No
     GA_BEST['Size'] = GA_BEST[feats].sum(axis=1)
     
     # show results
-    print('%s\nGA Complete\n\tUnique Subsets Evaluated - %d\n\tTotal Nontrivial Solutions Possible - %d'\
-        %(dispLine, len(allScores), 2**p-1))
-    print('Full Subset Score = %0.4f\nTop %d Solutions'%(fullScore, showTopSubs))
+    print('%s\nGA Complete\n\tTotal Nontrivial Solutions Possible - %d\n\tUnique Subsets Evaluated - %d (%0.2f%%)\n\tFull Subset Score = %0.4f\nTop %d Solutions'\
+        %(dispLine, 2**p-1, len(allScores), 100*len(allScores)/(2**p-1), fullScore, max(showTopSubs, len(GA_BEST))))
     display(GA_BEST.head(showTopSubs))
     
     # stop time
