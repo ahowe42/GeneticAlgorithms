@@ -124,7 +124,7 @@ def EncodeBinaryReal(inputType, inputValue, bits, lowerBounds, upperBounds):
     elif inputType == 'r': # real in, so binary out
         # iterate over real values
         reBinVal = [None]*len(inputValue)
-        for indx, (realV, bt, lb, ub) in enumerate(zip(inputValue, bits, lowerB, upperB)):
+        for indx, (realV, bt, lb, ub) in enumerate(zip(inputValue, bits, lowerBounds, upperBounds)):
             # stepsize in range
             steps = (ub - lb)/(2**bt-1)
             # values distance from lower
@@ -134,7 +134,7 @@ def EncodeBinaryReal(inputType, inputValue, bits, lowerBounds, upperBounds):
             reBinVal[indx] = binV
         outVal = list(chain.from_iterable(reBinVal))
     else:
-        raise('Input type may only be "b" for "r"')
+        raise TypeError('Input type may only be "b" for "r"')
     
     return outVal
 
