@@ -52,6 +52,7 @@ def PDFParamRanges(data, dist, scale=3):
         ub = [max(mnci), s*1.5]
     elif dist == 'GAM':
         phat = stt.gamma.fit(data)
+        phat = phat[1:] + (phat[0],)
         lb = [0.5*p for p in phat]
         ub = [1.5*p for p in phat]
     elif dist == 'LOG':
