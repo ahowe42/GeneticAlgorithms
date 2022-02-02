@@ -886,8 +886,8 @@ def RunGARealOptim(params, data, objective, verbose=False, randSeed=None):
     GA_BEST = GA_BEST.iloc[np.argsort(-optimGoal*GA_BEST['Score'].values),:]
     
     # show results
-    print('%s\nGA Complete\n\tUnique Solutions Evaluated - %d\n\tTotal Nontrivial Solutions Possible - %d'\
-        %(dispLine, len(allScores), 2**p-1))
+    print('%s\nGA Complete\n\tUnique Solutions Evaluated - %d\n\tTotal Solutions Possible - %d'\
+        %(dispLine, len(allScores), 2**p))
     print('Top %d Solutions'%showTopRes)
     display(GA_BEST.head(showTopRes))
     
