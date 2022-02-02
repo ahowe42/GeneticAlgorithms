@@ -534,7 +534,7 @@ def RunGASubset(params, data, objective, seedSubs=[], verbose=False, randSeed=No
         annotations=anns)
     fig['layout']['xaxis2'].update(title='Generation')
     if plotFlag:
-        plyoff.plot(fig, filename='../output/GAProgress_%s_%s_%s.html'%(tstamp, re.sub('[^0-9A-Za-z_]', '_', dataName), objFunc),
+        plyoff.plot(fig, filename='../output/GAProgress_%s_%s_%s.html'%(tstamp, re.sub('[^0-9A-Za-z_]', '_', dataName), re.sub('[^0-9A-Za-z_]', '_', objStr)),
             auto_open=True, include_mathjax='cdn')
     
     ''' summarize results: GA_BEST '''
@@ -868,7 +868,7 @@ def RunGARealOptim(params, data, objective, verbose=False, randSeed=None):
         annotations=anns)
     fig['layout']['xaxis2'].update(title='Generation')
     if plotFlag:
-        plyoff.plot(fig, filename='../output/GAProgress_%s_%s_%s.html'%(tstamp, re.sub('[^0-9A-Za-z_]', '_', dataName), objFunc),
+        plyoff.plot(fig, filename='../output/GAProgress_%s_%s_%s.html'%(tstamp, re.sub('[^0-9A-Za-z_]', '_', dataName), re.sub('[^0-9A-Za-z_]', '_', objStr)),
             auto_open=True, include_mathjax='cdn')
     
     ''' summarize results: GA_BEST '''
