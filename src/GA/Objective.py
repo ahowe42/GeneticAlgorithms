@@ -89,7 +89,7 @@ def ComputeLikelihood(data, params, dist):
         should be in a tuple or list:
         NRM - Gaussian: location, scale
         GAM - Gamma: location, scale, shape
-        LOG - Lognormal: Location, scale
+        LOG - Lognormal: Location, scale doesn't seem to be working right
         EXP - Exponential: scale
         CHI - Chi-Squared: degrees of freedom
         STU - Student's t: degrees of freedom
