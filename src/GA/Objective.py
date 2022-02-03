@@ -96,6 +96,7 @@ def ComputeLikelihood(data, params, dist):
         CAU - Cauchy: location
         LPL - Laplace: location
         PAR - Pareto: shape
+        UNI - Uniform: location, scale
     :return loglike: scalar value for the log likelihood
     :return probs: array_like of the same size of data holding the
         probability densities
@@ -119,6 +120,8 @@ def ComputeLikelihood(data, params, dist):
         probs = stt.laplace.pdf(data, loc=params[0])
     elif dist == 'PAR': # https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.pareto.html
         probs = stt.pareto.pdf(data, b=params[0])
+    elif dist == 'UNI': # https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.uniform.html
+        probs = stt.uniform.pdf(data, loc=params[0], scale=params[1])
     else:
         raise ValueError('%s = Invalid distribution, please see docstring'%dist)
      
