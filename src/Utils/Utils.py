@@ -56,12 +56,12 @@ def PDFParamRanges(data, dist, scale=3):
         lb = [0.5*p for p in phat]
         ub = [1.5*p for p in phat]
     elif dist == 'LOG':
-        mnci = np.mean(logx) + inflate*np.std(logx)/sqn
+        mnci = xbar + inflate*s/sqn
         lb = [min(mnci), 0.0001]
         ub = [max(mnci), s*1.5]
     elif dist == 'EXP':
-        lambdaci = 1/(xbar + inflate*(xbar**2)/sqn)
-        lb = [max([0, min(lambdaci)])]
+        lambdaci = xbar + inflate*(xbar**2)/sqn
+        lb = [max(0, min(lambdaci))]
         ub = [max(lambdaci)]
     elif dist == 'CHI':
         lb = [0]
@@ -78,8 +78,10 @@ def PDFParamRanges(data, dist, scale=3):
         lb = [min(mnci), 0.0001]
         ub = [max(mnci), s*1.5]
     elif dist == 'PAR':
+        phat = stt.pareto.fit(data)[0]
         lb = [0]
-        ub = [1.5*n/np.sum(np.log(1 + data))]
+        ub = [inflate[1]*phat]
+        #ub = [1.5*n/np.sum(np.log(1 + data))]
     else:
         raise ValueError('%s = Invalid distribution, please see docstring'%dist)
         
