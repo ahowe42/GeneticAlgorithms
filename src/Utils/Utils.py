@@ -119,7 +119,7 @@ def EncodeBinaryReal(inputType, inputValue, bits, lowerBounds, upperBounds):
             binV = inputValue[low:hig]
             # get the powers of 2 & max value
             exps = [2**b for b in range(bt-1,-1, -1)]
-            mx = 2**len(bits)
+            mx = 2**bt-1
             # compute the real value
             realV = sum([b*e for (b, e) in zip(binV, exps)])
             realV = lb + (ub - lb)*realV/mx
