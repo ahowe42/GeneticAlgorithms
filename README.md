@@ -7,6 +7,7 @@ This repository holds code and demonstrative notebooks for optimization with gen
 	- as a metaphor
 	- in detail
 	- its operators / parameters
+- frequentist statistics
 - the three demonstrative use cases listed below.
 
 ## Feature Selection for Machine Learning
