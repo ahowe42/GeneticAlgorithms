@@ -1,0 +1,22 @@
+name: GA
+channels:
+  - plotly
+  - anaconda
+  - conda-forge
+  - defaults
+dependencies:
+  - chart-studio=1.1
+  - ipdb=0.13
+  - ipython=7.18
+  - jupyter=1.0
+  - jupyterlab=3.1
+  - nodejs=10.13
+  - numpy=1.19
+  - pandas=1.1
+  - pip
+  - plotly=5.3
+  - python=3.8.5
+  - regex=2020.10
+  - scipy=1.5
+  - pip:
+    - scikit-learn==1.0    
