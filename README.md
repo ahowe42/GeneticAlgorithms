@@ -10,6 +10,19 @@ This repository holds code and demonstrative notebooks for optimization with gen
 - frequentist statistics
 - the three demonstrative use cases listed below.
 
+Along the way, a variety of topics are mentioned, including:
+
+- Ensemble Models
+- Frequentist Statistics
+- Information Complexity
+- Matrix Calculus
+- No Free Lunch Theorm
+- Occam's Razor
+- Pareto Frontier
+- Recombinant DNA
+- Jack Nicholson
+
+
 ## Feature Selection for Machine Learning
 The [GA Feature Selection Notebook](./notebooks/GA_FeatureSelection.ipynb) demonstrates feature selection with the GA for a given dataset. The objective function fits a machine learning model - either regression or classification - then computes the error to be minimized. The data is simulated using a known dependence structure, so it is possible to assess the accuracy of the GA result.
 
