@@ -1,0 +1,12 @@
+#python==3.8.5
+chart-studio
+ipdb
+ipython
+jupyter
+jupyterlab
+numpy
+pandas
+plotly
+regex
+scikit-learn
+scipy

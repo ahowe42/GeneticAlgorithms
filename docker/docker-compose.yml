@@ -1,0 +1,11 @@
+version: '2'
+
+services:
+  python:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - 9999:8888
+    volumes:
+        - ./src/notebooks:/usr/src/notebooks
