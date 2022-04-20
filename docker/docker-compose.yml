@@ -2,10 +2,11 @@ version: '2'
 
 services:
   python:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    image: mypython:ubuntu  
+  #  build:
+  #    context: .
+  #    dockerfile: Dockerfile_ubuntu
     ports:
       - 9999:8888
     volumes:
-        - ./src/notebooks:/usr/src/notebooks
+        - ./notebooks:/usr/src/notebooks
