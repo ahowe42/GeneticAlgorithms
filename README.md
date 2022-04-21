@@ -63,7 +63,6 @@ The repository holds an environment specification file for the anaconda distribu
 - dockerfile
 - docker compose yaml file
 - pip requirements.txt file
-- supervisor configuration file
 These can be used - simply executing `docker compose up` in the repository directory, to build and run a docker app to run these notebooks. Jupyter lab will be running on localhost:9999.
 
 *Note that the docker file will execute `git clone` to pull the codebase from the repository, so any changes you might make to the code will not be reflected.*
