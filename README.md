@@ -57,3 +57,13 @@ Numerical optimization of mathematical functions is an important topic, and has 
 - performance
 
 Many of them are listed [here](https://en.wikipedia.org/wiki/Test_functions_for_optimization). The Sphere function, for example, should be relatively easy to minimize, as there is only a single minimum and constant gradient everywhere. Others, such as the Rastrigin or Ackley functions, have several local minima, and can be difficult for gradient-following functions to minimize.
+
+# Python Environment
+The repository holds an environment specification file for the anaconda distribution. The code in this repository should work as expected, in an environment setup using this file. Alternatively the docker folder holds:
+- dockerfile
+- docker compose yaml file
+- pip requirements.txt file
+- supervisor configuration file
+These can be used - simply executing `docker compose up` in the repository directory, to build and run a docker app to run these notebooks. Jupyter lab will be running on localhost:9999.
+
+*Note that the docker file will execute `git clone` to pull the codebase from the repository, so any changes you might make to the code will not be reflected.*
