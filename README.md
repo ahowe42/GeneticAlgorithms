@@ -70,8 +70,6 @@ To setup and run the Jupyter notebooks, execute these instructions with Docker i
 - 
 Jupyter lab will be running on localhost:9999.
 
-Building the image without the cache each time guarantees it has the latest copy of the repository. If this isn't necessary, after having built the docker image once, you can just run the `docker compose up command`.
+Building the image without the cache each time guarantees it has the latest copy of this repository. If this isn't necessary, after having built the docker image once, you can just run the `docker compose up` command.
 
-*Note that the docker file will execute `git clone` to pull the codebase from the repository into the docker image, so any changes you might make to the code will not be reflected.*
-
-If you want to
+*Note that the docker file will execute `git clone` to pull the codebase from the repository into the docker image, so any changes you might make to the code locally will not be reflected. If you rebuild the image, any changes to the code you save in the docker image will similarly be lost.*
