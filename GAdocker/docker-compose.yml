@@ -8,7 +8,7 @@ services:
     # Actually, just deleting the image doesn't actually seem to work, not sure why not...
     #build:
     #  context: .
-    #  dockerfile: Dockerfile_ubuntu
+    #  dockerfile: Dockerfile
     ports:
       - 9999:8888
     # The idea here is that these bind mounted folders can be used by copying in updated NBs & outputs, which then come to the host.
