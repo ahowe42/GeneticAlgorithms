@@ -1,0 +1,17 @@
+version: '2'
+
+services:
+  python:
+    #image: mypython:ubuntu
+    # This will rebuild the image and container if the dockerfile has changed. To guarantee that it always pulls the latest copy
+    # of the repo from github, would need to delete the image. This is clearly suboptimal.
+    build:
+      context: .
+      dockerfile: Dockerfile_ubuntu
+    ports:
+      - 9999:8888
+    # The idea here is that these bind mounted folders can be used by copying in updated NBs & outputs, which then come to the host.
+    # I'm not sure how useful this is...
+    volumes:
+        - ../notebooks:/usr/src/notebooks
+        - ../output:/usr/src/output
