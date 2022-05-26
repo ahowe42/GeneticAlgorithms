@@ -67,7 +67,7 @@ The repository holds an environment specification file for the anaconda distribu
 To setup and run the Jupyter notebooks, execute these instructions with Docker installed, from the ./GAdocker/ folder:
 - `docker image build --no-cache -t gadocker_python:latest .`
 - `docker compose up`
-- 
+
 Jupyter lab will be running on localhost:9999.
 
 Building the image without the cache each time guarantees it has the latest copy of this repository. If this isn't necessary, after having built the docker image once, you can just run the `docker compose up` command.
